@@ -174,36 +174,36 @@ install_lxc_autoscale() {
     touch /usr/local/bin/lxc_autoscale/__init__.py
 
     # Download and install the configuration file
-    curl -sSL -o /etc/lxc_autoscale/lxc_autoscale.yaml https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/lxc_autoscale.yaml
+    curl -sSL -o /etc/lxc_autoscale/lxc_autoscale.yaml https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/lxc_autoscale.yaml
 
     # Download and install all Python files in the lxc_autoscale directory
     log "INFO" "Downloading core application files..."
-    curl -sSL -o /usr/local/bin/lxc_autoscale/lxc_autoscale.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/lxc_autoscale.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/lxc_autoscale.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/lxc_autoscale.py
     
     log "INFO" "Downloading configuration and utility modules..."
-    curl -sSL -o /usr/local/bin/lxc_autoscale/constants.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/constants.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/config_manager.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/config_manager.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/config.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/config.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/error_handler.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/error_handler.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/security_validator.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/security_validator.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/constants.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/constants.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/config_manager.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/config_manager.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/config.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/config.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/error_handler.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/error_handler.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/security_validator.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/security_validator.py
     
     log "INFO" "Downloading execution and management modules..."
-    curl -sSL -o /usr/local/bin/lxc_autoscale/command_executor.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/command_executor.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/resource_manager.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/resource_manager.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/scaling_orchestrator.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/scaling_orchestrator.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/command_executor.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/command_executor.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/resource_manager.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/resource_manager.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/scaling_orchestrator.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/scaling_orchestrator.py
     
     log "INFO" "Downloading scaling modules..."
-    curl -sSL -o /usr/local/bin/lxc_autoscale/metrics_calculator.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/metrics_calculator.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/resource_scaler.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/resource_scaler.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/horizontal_scaler.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/horizontal_scaler.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/scaling_manager.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/scaling_manager.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/metrics_calculator.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/metrics_calculator.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/resource_scaler.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/resource_scaler.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/horizontal_scaler.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/horizontal_scaler.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/scaling_manager.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/scaling_manager.py
     
     log "INFO" "Downloading utility and support modules..."
-    curl -sSL -o /usr/local/bin/lxc_autoscale/lxc_utils.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/lxc_utils.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/notification.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/notification.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/logging_setup.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/logging_setup.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/structured_logger.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/structured_logger.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/lock_manager.py https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/lock_manager.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/lxc_utils.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/lxc_utils.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/notification.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/notification.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/logging_setup.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/logging_setup.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/structured_logger.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/structured_logger.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/lock_manager.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/lock_manager.py
 
     # Validate that all required files were downloaded successfully
     log "INFO" "Validating downloaded files..."
@@ -247,7 +247,7 @@ install_lxc_autoscale() {
     fi
 
     # Download and install the systemd service file
-    curl -sSL -o /etc/systemd/system/lxc_autoscale.service https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/lxc_autoscale.service
+    curl -sSL -o /etc/systemd/system/lxc_autoscale.service https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/lxc_autoscale.service
 
     # Make the main script executable
     chmod +x /usr/local/bin/lxc_autoscale/lxc_autoscale.py
