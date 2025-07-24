@@ -4,7 +4,9 @@ import argparse
 import logging
 from typing import Optional
 
-from config import DEFAULTS, LOG_FILE
+from config_manager import config_manager
+from constants import DEFAULT_LOG_FILE
+from error_handler import ErrorHandler
 from logging_setup import setup_logging
 from lock_manager import acquire_lock
 from lxc_utils import get_containers, rollback_container_settings
@@ -25,7 +27,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--poll_interval",
         type=int,
-        default=DEFAULTS.get('poll_interval', 300),
+        default=config_manager.get_default('poll_interval', 300),
         help="Polling interval in seconds"  # How often the main loop should run
     )
 
@@ -33,7 +35,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--energy_mode",
         action="store_true",
-        default=DEFAULTS.get('energy_mode', False),
+        default=config_manager.get_default('energy_mode', False),
         help="Enable energy efficiency mode during off-peak hours"  # Reduces resource allocation during low-usage periods
     )
 
@@ -62,7 +64,8 @@ if __name__ == "__main__":
     args: argparse.Namespace = parse_arguments()
     
     # Setup logging with the configured log file and debug mode
-    setup_logging(LOG_FILE, args.debug)
+    log_file = config_manager.get_default('log_file', DEFAULT_LOG_FILE)
+    setup_logging(log_file, args.debug)
 
     logging.info("Starting LXC autoscaling daemon")
     logging.debug("Arguments: %s", args)
@@ -82,6 +85,7 @@ if __name__ == "__main__":
                 main_loop(args.poll_interval, args.energy_mode)
         except Exception as e:
             logging.exception(f"An error occurred during main execution: {e}")
+            ErrorHandler.handle_recoverable_error(e, "main execution")
 
         finally:
             # Ensure that the lock is released and the script exits cleanly

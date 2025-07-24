@@ -1,42 +1,54 @@
 # 🚀 LXC AutoScale
 
-**LXC AutoScale** is a resource management daemon specifically designed for Proxmox environments. It automatically adjusts CPU and memory allocations with no downtime and can clone LXC containers based on real-time usage metrics and predefined thresholds. Can be run locally or remotely to make your containers always optimized for performance, managing spikes in demand, and optionally preserving resources during off-peak hours. 
+**LXC AutoScale** is a resource management daemon specifically designed for Proxmox environments. It automatically adjusts CPU and memory allocations with no downtime and can clone LXC containers based on real-time usage metrics and predefined thresholds. Can be run locally or remotely to make your containers always optimized for performance, managing spikes in demand, and optionally preserving resources during off-peak hours. This project was created by Fabrizio Salmi and this is just a fork where I added new features based on my own needs within my Proxmox home lab.
 
-- **✅ Works with `Proxmox 8.3.3`** 
+- **✅ Works with `Proxmox 8.4.5`** 
 
 **Quick Start**
 
 | Method           | Instructions                                                                                                   |
 |------------------|----------------------------------------------------------------------------------------------------------------|
-| 🐳    | [Docker](https://github.com/fabriziosalmi/proxmox-lxc-autoscale/blob/main/docs/lxc_autoscale/README.md#docker) |
-| 🐧    | [no Docker](https://github.com/fabriziosalmi/proxmox-lxc-autoscale/blob/main/README.md#quick-start) |
+| 🐳    | [Docker](https://github.com/MatrixMagician/proxmox-lxc-autoscale/blob/main/docs/lxc_autoscale/README.md#docker) |
+| 🐧    | [no Docker](https://github.com/MatrixMagician/proxmox-lxc-autoscale/blob/main/README.md#quick-start) |
 
 ## Features
 LXC AutoScale is packed with features that make it an essential tool for managing the auto-scaling of your LXC containers on Proxmox:
 
-- ⚙️ Automatic Resource Scaling
-- ⚖️ Automatic Horizontal Scaling
-- 📊 Tier Defined Thresholds
-- 🛡️ Host Resource Reservation
-- 🔒 Ignore Scaling Option
-- 🌱 Energy Efficiency Mode
-- 🚦 Container Prioritization
-- 📦 Automatic Backups
-- 🔔 Mail and Push Notifications
-- 📈 JSON Metrics
-- 💻 Local or remote execution
-- 💃 Easy autoconf for humans
-- 🐳 Docker supported
+### Core Scaling Features
+- ⚙️ **Automatic Resource Scaling** - Dynamic CPU and memory adjustment based on real-time usage
+- ⚖️ **Automatic Horizontal Scaling** - Clone containers automatically when demand increases
+- 📊 **Tier Defined Thresholds** - Customizable scaling thresholds per container or container groups
+- 🛡️ **Host Resource Reservation** - Protect host resources from over-allocation
+- 🔒 **Ignore Scaling Option** - Exclude specific containers from scaling operations
+- 🌱 **Energy Efficiency Mode** - Reduce resource allocation during off-peak hours
+- 🚦 **Container Prioritization** - Different scaling behaviors based on container importance
 
-> [!NOTE]
-> If You need to autoscale Virtual Machines resources on Proxmox hosts You will like [this project](https://github.com/fabriziosalmi/proxmox-vm-autoscale).
+### Advanced Features
+- 📦 **Automatic Backups** - Container settings backup before scaling operations
+- 🔔 **Multi-Channel Notifications** - Email, Gotify, and push notifications for scaling events
+- 📈 **Structured JSON Metrics** - Comprehensive performance and scaling metrics
+- 💻 **Hybrid Execution** - Run locally on Proxmox host or remotely via SSH
+- 💃 **Easy Auto-Configuration** - Automated configuration generation for all containers
+- 🐳 **Docker Support** - Containerized deployment option
+
+### Security Features *(New in v2.0)*
+- 🔐 **Enhanced Security** - Input validation, command injection prevention, and secure operations
+- 🏗️ **Modular Architecture** - Maintainable, testable, and extensible codebase
+- 📊 **Structured Logging** - JSON-formatted logs with performance metrics and error tracking
+- 🔄 **Retry Mechanisms** - Automatic retry for transient failures with exponential backoff
+- ⚡ **Connection Pooling** - Optimized SSH connection management for remote operations
+- 🛡️ **Centralized Error Handling** - Comprehensive error management with graceful degradation
+- 📈 **Performance Monitoring** - Real-time performance metrics and utilization tracking
+- 🔧 **Configuration Management** - Centralized, validated configuration with type safety
+- 🧪 **Testing Framework** - Modular design enables comprehensive unit and integration testing
+
 
 ## Quick Start
 
 Getting started with LXC AutoScale on your Proxmox host is quick and simple:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/install.sh | bash
 ```
 
 > [!TIP]
@@ -84,7 +96,7 @@ LXC AutoScale is designed to be highly customizable. You can reconfigure the ser
 > [!TIP]
 > If You need LXC AutoScale configuration for all your LXC containers You can automatically generate it by running this command:
 > ```
-> curl -sSL https://raw.githubusercontent.com/fabriziosalmi/proxmox-lxc-autoscale/main/lxc_autoscale/lxc_autoscale_autoconf.sh | bash
+> curl -sSL https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/lxc_autoscale_autoconf.sh | bash
 > ```
 
 ### Additional resources
@@ -93,38 +105,17 @@ LXC AutoScale and LXC AutoScale ML can be used and extended in many ways, here s
 - 🌐 [LXC AutoScale UI - Simple web UI to check scaling actions and logs](https://github.com/fabriziosalmi/proxmox-lxc-autoscale/tree/main/lxc_autoscale/ui)
 - 🎛️ [LXC AutoScale - TIER snippets for 40 self-hosted apps](https://github.com/fabriziosalmi/proxmox-lxc-autoscale/blob/main/docs/lxc_autoscale/examples/README.md)
 
-> [!TIP]
-> LXC AutoScale ML has been finally moved to a new, separate [repository](https://github.com/fabriziosalmi/proxmox-lxc-autoscale-ml).
 
 ## Contributing
 
-LXC AutoScale is an open-source project, and contributions are welcome! Whether you want to submit a pull request, report an issue, or suggest a new feature, your input is invaluable. To get involved, you can:
+This is an experimental fork of LXC AutoScale and as such contributions are not wanted in this repo.  But if you want to contribute to the original project that this fork is based on, please submit a pull request, report an issue, or suggest a new feature, you can get involved below by:
 
-- [Open an issue](https://github.com/fabriziosalmi/proxmox-lxc-autoscale/issues/new/choose) to report bugs or request new features.
-- Submit a pull request to the repository.
+- [Opening an issue](https://github.com/fabriziosalmi/proxmox-lxc-autoscale/issues/new/choose) to report bugs or request new features.
+- Submitting a pull request to the original repository.
 - Fork the repository to experiment and develop your custom features.
 
-## Others projects
-
-If You like my projects, you may also like these ones:
-
-- [caddy-waf](https://github.com/fabriziosalmi/caddy-waf) Caddy WAF (Regex Rules, IP and DNS filtering, Rate Limiting, GeoIP, Tor, Anomaly Detection) 
-- [patterns](https://github.com/fabriziosalmi/patterns) Automated OWASP CRS and Bad Bot Detection for Nginx, Apache, Traefik and HaProxy
-- [blacklists](https://github.com/fabriziosalmi/blacklists) Hourly updated domains blacklist 🚫 
-- [proxmox-vm-autoscale](https://github.com/fabriziosalmi/proxmox-vm-autoscale) Automatically scale virtual machines resources on Proxmox hosts 
-- [UglyFeed](https://github.com/fabriziosalmi/UglyFeed) Retrieve, aggregate, filter, evaluate, rewrite and serve RSS feeds using Large Language Models for fun, research and learning purposes 
-- [DevGPT](https://github.com/fabriziosalmi/DevGPT) Code togheter, right now! GPT powered code assistant to build project in minutes
-- [websites-monitor](https://github.com/fabriziosalmi/websites-monitor) Websites monitoring via GitHub Actions (expiration, security, performances, privacy, SEO)
-- [caddy-mib](https://github.com/fabriziosalmi/caddy-mib) Track and ban client IPs generating repetitive errors on Caddy 
-- [zonecontrol](https://github.com/fabriziosalmi/zonecontrol) Cloudflare Zones Settings Automation using GitHub Actions 
-- [lws](https://github.com/fabriziosalmi/lws) linux (containers) web services
-- [cf-box](https://github.com/fabriziosalmi/cf-box) cf-box is a set of Python tools to play with API and multiple Cloudflare accounts.
-- [limits](https://github.com/fabriziosalmi/limits) Automated rate limits implementation for web servers 
-- [dnscontrol-actions](https://github.com/fabriziosalmi/dnscontrol-actions) Automate DNS updates and rollbacks across multiple providers using DNSControl and GitHub Actions 
-- [proxmox-lxc-autoscale-ml](https://github.com/fabriziosalmi/proxmox-lxc-autoscale-ml) Automatically scale the LXC containers resources on Proxmox hosts with AI
-- [csv-anonymizer](https://github.com/fabriziosalmi/csv-anonymizer) CSV fuzzer/anonymizer
-- [iamnotacoder](https://github.com/fabriziosalmi/iamnotacoder) AI code generation and improvement
-
+## Credit
+All credit goes to [Fabrizio Salmi](https://github.com/fabriziosalmi) for creating this project.
 
 ## ⚠️ Disclaimer
 > [!CAUTION]
