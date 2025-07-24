@@ -45,10 +45,11 @@ LXC AutoScale is packed with features that make it an essential tool for managin
 
 ## Quick Start
 
-Getting started with LXC AutoScale on your Proxmox host is quick and simple:
+Getting started with LXC AutoScale on your Proxmox host is quick and simple
+Clone the repo and run the install.sh script as root:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/install.sh | bash
+bash install.sh
 ```
 
 > [!TIP]
@@ -92,12 +93,6 @@ If the conditions set in the configuration are met, you will quickly observe sca
 ## Configuration
 
 LXC AutoScale is designed to be highly customizable. You can reconfigure the service at any time to better suit your specific needs. For detailed instructions on how to adjust the settings, please refer to the **[official documentation](https://github.com/fabriziosalmi/proxmox-lxc-autoscale/blob/main/docs/lxc_autoscale/README.md)**.
-
-> [!TIP]
-> If You need LXC AutoScale configuration for all your LXC containers You can automatically generate it by running this command:
-> ```
-> curl -sSL https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/lxc_autoscale_autoconf.sh | bash
-> ```
 
 ### Additional resources
 LXC AutoScale and LXC AutoScale ML can be used and extended in many ways, here some useful additional resources:
