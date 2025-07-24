@@ -40,6 +40,30 @@ ask_for_confirmation() {
   echo "${input:-$default_value}"
 }
 
+# Function to validate numeric ranges
+validate_percentage() {
+  local value="$1"
+  local name="$2"
+  if [[ "$value" =~ ^[0-9]+$ ]] && [ "$value" -ge 0 ] && [ "$value" -le 100 ]; then
+    return 0
+  else
+    echo "⚠️  Warning: $name should be between 0-100. Value '$value' may cause issues." >&2
+    return 1
+  fi
+}
+
+# Function to validate positive integers
+validate_positive_integer() {
+  local value="$1"
+  local name="$2"
+  if [[ "$value" =~ ^[0-9]+$ ]] && [ "$value" -gt 0 ]; then
+    return 0
+  else
+    echo "⚠️  Warning: $name should be a positive integer. Value '$value' may cause issues." >&2
+    return 1
+  fi
+}
+
 # Modified Function to prompt for containers to ignore
 ask_for_ignored_containers() {
   local containers=("$@")
@@ -72,7 +96,9 @@ ask_for_ignored_containers() {
 
 
 # Start of the script
-echo "🚀 Starting LXC autoscale configuration..."
+echo "🚀 Starting LXC AutoScale v2.0 Configuration Generator..."
+echo "✨ Enhanced with new enterprise features!"
+echo ""
 
 # Gather system information
 total_cores=$(get_total_cores)
@@ -130,15 +156,18 @@ echo "🔍 Total resources on Proxmox host: $total_cores cores, $total_memory MB
 echo "🔍 Total resources used by selected containers: $total_used_cores cores, $total_used_memory MB memory"
 echo "🔍 Remaining resources: $((total_cores - total_used_cores)) cores, $((total_memory - total_used_memory)) MB memory"
 
-# Ask for confirmation for DEFAULT section settings
-poll_interval=$(ask_for_confirmation "Polling interval (seconds)" "600")
-cpu_upper_threshold=$(ask_for_confirmation "CPU upper threshold (%)" "85")
-cpu_lower_threshold=$(ask_for_confirmation "CPU lower threshold (%)" "10")
+# Ask for confirmation for DEFAULT section settings (updated with v2.0 defaults)
+echo "⚙️  Configuring DEFAULT settings with v2.0 enhanced defaults..."
+echo ""
+poll_interval=$(ask_for_confirmation "Polling interval (seconds)" "300")
+cpu_upper_threshold=$(ask_for_confirmation "CPU upper threshold (%)" "80")
+cpu_lower_threshold=$(ask_for_confirmation "CPU lower threshold (%)" "20")
 memory_upper_threshold=$(ask_for_confirmation "Memory upper threshold (%)" "80")
-memory_lower_threshold=$(ask_for_confirmation "Memory lower threshold (%)" "10")
+memory_lower_threshold=$(ask_for_confirmation "Memory lower threshold (%)" "20")
 core_min_increment=$(ask_for_confirmation "Minimum core increment" "1")
-core_max_increment=$(ask_for_confirmation "Maximum core increment" "4")
-memory_min_increment=$(ask_for_confirmation "Minimum memory increment (MB)" "512")
+core_max_increment=$(ask_for_confirmation "Maximum core increment" "2")
+memory_min_increment=$(ask_for_confirmation "Minimum memory increment (MB)" "256")
+min_decrease_chunk=$(ask_for_confirmation "Minimum memory decrease chunk (MB)" "128")
 reserve_cpu_percent=$(ask_for_confirmation "Reserved CPU percentage" "10")
 reserve_memory_mb=$(ask_for_confirmation "Reserved memory (MB)" "2048")
 log_file=$(ask_for_confirmation "Log file path" "/var/log/lxc_autoscale.log")
@@ -146,31 +175,122 @@ lock_file=$(ask_for_confirmation "Lock file path" "/var/lock/lxc_autoscale.lock"
 backup_dir=$(ask_for_confirmation "Backup directory" "/var/lib/lxc_autoscale/backups")
 off_peak_start=$(ask_for_confirmation "Off-peak start hour" "22")
 off_peak_end=$(ask_for_confirmation "Off-peak end hour" "6")
-energy_mode=$(ask_for_confirmation "Enable energy-saving mode (True/False)" "False")
+energy_mode=$(ask_for_confirmation "Enable energy-saving mode (true/false)" "false")
 behaviour=$(ask_for_confirmation "Behaviour (normal/conservative/aggressive)" "normal")
 
-# Prepare YAML content
-yaml_content="DEFAULT:
+echo ""
+echo "🔧 Advanced v2.0 Configuration Options:"
+cpu_scale_divisor=$(ask_for_confirmation "CPU scale divisor (for scaling calculations)" "2.0")
+memory_scale_factor=$(ask_for_confirmation "Memory scale factor" "1.5")
+timeout_extended=$(ask_for_confirmation "Extended timeout for operations (seconds)" "60")
+
+echo ""
+echo "🌐 SSH/Remote Configuration (optional - leave empty for local execution):"
+ssh_host=$(ask_for_confirmation "SSH host (leave empty for local execution)" "")
+ssh_user=$(ask_for_confirmation "SSH username (if using remote execution)" "")
+ssh_port=$(ask_for_confirmation "SSH port (if using remote execution)" "22")
+use_remote_proxmox=$(ask_for_confirmation "Use remote Proxmox execution (true/false)" "false")
+
+echo ""
+echo "🔍 Validating configuration values..."
+# Validate percentage values
+validate_percentage "$cpu_upper_threshold" "CPU upper threshold"
+validate_percentage "$cpu_lower_threshold" "CPU lower threshold"
+validate_percentage "$memory_upper_threshold" "Memory upper threshold"
+validate_percentage "$memory_lower_threshold" "Memory lower threshold"
+validate_percentage "$reserve_cpu_percent" "Reserved CPU percentage"
+
+# Validate positive integers
+validate_positive_integer "$poll_interval" "Poll interval"
+validate_positive_integer "$core_min_increment" "Core min increment"
+validate_positive_integer "$core_max_increment" "Core max increment"
+validate_positive_integer "$memory_min_increment" "Memory min increment"
+validate_positive_integer "$min_decrease_chunk" "Min decrease chunk"
+validate_positive_integer "$reserve_memory_mb" "Reserved memory"
+
+# Validate threshold relationships
+if [ "$cpu_lower_threshold" -ge "$cpu_upper_threshold" ]; then
+  echo "⚠️  Warning: CPU lower threshold ($cpu_lower_threshold%) should be less than upper threshold ($cpu_upper_threshold%)" >&2
+fi
+
+if [ "$memory_lower_threshold" -ge "$memory_upper_threshold" ]; then
+  echo "⚠️  Warning: Memory lower threshold ($memory_lower_threshold%) should be less than upper threshold ($memory_upper_threshold%)" >&2
+fi
+
+echo "✅ Basic validation completed!"
+echo ""
+
+# Prepare YAML content with v2.0 enhancements
+yaml_content="# LXC AutoScale v2.0 Configuration
+# Generated by lxc_autoscale_autoconf.sh on $(date +"%Y-%m-%d %H:%M:%S")
+# Enhanced with enterprise features: security, modularity, structured logging
+
+DEFAULT:
+  # Core scaling parameters
   poll_interval: $poll_interval
   cpu_upper_threshold: $cpu_upper_threshold
   cpu_lower_threshold: $cpu_lower_threshold
   memory_upper_threshold: $memory_upper_threshold
   memory_lower_threshold: $memory_lower_threshold
+  
+  # Scaling increments and limits
   core_min_increment: $core_min_increment
   core_max_increment: $core_max_increment
   memory_min_increment: $memory_min_increment
+  min_decrease_chunk: $min_decrease_chunk
+  
+  # Resource reservation
   reserve_cpu_percent: $reserve_cpu_percent
   reserve_memory_mb: $reserve_memory_mb
+  
+  # File paths
   log_file: $log_file
   lock_file: $lock_file
   backup_dir: $backup_dir
+  
+  # Energy efficiency
   off_peak_start: $off_peak_start
   off_peak_end: $off_peak_end
   energy_mode: $energy_mode
   behaviour: $behaviour
-  ignore_lxc: 
-$(printf '    - %s\n' "${ignored_containers[@]}")
+  
+  # Advanced v2.0 settings
+  cpu_scale_divisor: $cpu_scale_divisor
+  memory_scale_factor: $memory_scale_factor
+  timeout_extended: $timeout_extended
 "
+
+# Add SSH configuration if provided
+if [ -n "$ssh_host" ]; then
+  yaml_content+="  
+  # SSH/Remote configuration
+  use_remote_proxmox: $use_remote_proxmox
+  proxmox_host: $ssh_host"
+  
+  if [ -n "$ssh_user" ]; then
+    yaml_content+="
+  ssh_user: $ssh_user"
+  fi
+  
+  if [ "$ssh_port" != "22" ]; then
+    yaml_content+="
+  ssh_port: $ssh_port"
+  fi
+fi
+
+# Add ignore list
+yaml_content+="
+  
+  # Containers to ignore from scaling
+  ignore_lxc:"
+
+if [ ${#ignored_containers[@]} -eq 0 ]; then
+  yaml_content+=" []"
+else
+  yaml_content+="\n$(printf '    - %s\n' "${ignored_containers[@]}")"
+fi
+
+yaml_content+="\n"
 
 # Generate TIER_ sections for each processed LXC container
 echo "⚙️  Configuring TIER sections..."
@@ -178,33 +298,62 @@ for ctid in "${processed_containers[@]}"; do
   cores=$(get_container_cores $ctid)
   memory=$(get_container_memory $ctid)
 
-  tier_cpu_upper_threshold=$(ask_for_confirmation "CPU upper threshold for TIER_$ctid (%)" "85")
-  tier_cpu_lower_threshold=$(ask_for_confirmation "CPU lower threshold for TIER_$ctid (%)" "10")
+  tier_cpu_upper_threshold=$(ask_for_confirmation "CPU upper threshold for TIER_$ctid (%)" "80")
+  tier_cpu_lower_threshold=$(ask_for_confirmation "CPU lower threshold for TIER_$ctid (%)" "20")
   tier_memory_upper_threshold=$(ask_for_confirmation "Memory upper threshold for TIER_$ctid (%)" "80")
-  tier_memory_lower_threshold=$(ask_for_confirmation "Memory lower threshold for TIER_$ctid (%)" "10")
+  tier_memory_lower_threshold=$(ask_for_confirmation "Memory lower threshold for TIER_$ctid (%)" "20")
   tier_min_cores=$cores
   tier_max_cores=$(ask_for_confirmation "Maximum cores for TIER_$ctid" "$((cores + 2))")
   tier_min_memory=$memory
-  tier_max_memory=$(ask_for_confirmation "Maximum memory (MB) for TIER_$ctid" "$((memory + 1024))")
+  tier_core_min_increment=$(ask_for_confirmation "Core increment for TIER_$ctid" "1")
+  tier_core_max_increment=$(ask_for_confirmation "Max core increment for TIER_$ctid" "2")
+  tier_memory_min_increment=$(ask_for_confirmation "Memory increment (MB) for TIER_$ctid" "256")
+  tier_min_decrease_chunk=$(ask_for_confirmation "Min decrease chunk (MB) for TIER_$ctid" "128")
 
   yaml_content+="
+# Container-specific tier configuration
 TIER_$ctid:
+  # Thresholds
   cpu_upper_threshold: $tier_cpu_upper_threshold
   cpu_lower_threshold: $tier_cpu_lower_threshold
   memory_upper_threshold: $tier_memory_upper_threshold
   memory_lower_threshold: $tier_memory_lower_threshold
+  
+  # Resource limits
   min_cores: $tier_min_cores
   max_cores: $tier_max_cores
   min_memory: $tier_min_memory
-  max_memory: $tier_max_memory
-  lxc_containers: 
+  
+  # Scaling increments (v2.0 enhancement)
+  core_min_increment: $tier_core_min_increment
+  core_max_increment: $tier_core_max_increment
+  memory_min_increment: $tier_memory_min_increment
+  min_decrease_chunk: $tier_min_decrease_chunk
+  
+  # Containers in this tier
+  lxc_containers:
     - $ctid
 "
 done
 
-# Add a footer to the generated YAML
-yaml_content+=" "
-yaml_content+="# Autogenerated by lxc_autoscale_autoconf.sh on $(date +"%Y-%m-%d %H:%M:%S")"
+# Add validation and footer information
+yaml_content+="
+# Configuration validation notes:
+# - All thresholds should be between 0-100%
+# - Lower thresholds must be less than upper thresholds
+# - Minimum resources must be less than or equal to maximum resources
+# - SSH configuration is only needed for remote Proxmox execution
+# 
+# v2.0 Features enabled:
+# ✅ Enhanced security with input validation
+# ✅ Modular architecture for better maintenance  
+# ✅ Structured JSON logging for observability
+# ✅ Automatic retry mechanisms for reliability
+# ✅ Connection pooling for better performance
+# ✅ Centralized error handling and recovery
+
+# Generated by lxc_autoscale_autoconf.sh v2.0 on $(date +"%Y-%m-%d %H:%M:%S")
+""
 
 # Final confirmation before saving
 echo ""
@@ -229,4 +378,21 @@ else
   echo "💾 Configuration saved t $filename"
 fi
 
-echo "🏁 LXC autoscale configuration process completed."
+echo ""
+echo "🚀 LXC AutoScale v2.0 Configuration Generated Successfully!"
+echo "======================================================="
+echo ""
+echo "✨ Your configuration includes v2.0 enterprise features:"
+echo "• Enhanced security with input validation"
+echo "• Modular architecture for better maintenance"
+echo "• Structured JSON logging for observability"
+echo "• Automatic retry mechanisms for reliability"
+echo "• Configuration validation and type safety"
+echo ""
+echo "📋 Next Steps:"
+echo "1. Review the generated configuration above"
+echo "2. Check service status: systemctl status lxc_autoscale.service"
+echo "3. Monitor logs: journalctl -u lxc_autoscale.service -f"
+echo "4. View structured logs: tail -f /var/log/lxc_autoscale.log | jq"
+echo ""
+echo "🏁 LXC AutoScale v2.0 configuration process completed!"

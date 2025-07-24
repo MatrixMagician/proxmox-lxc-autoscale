@@ -154,7 +154,7 @@ main() {
 
     log "INFO" "LXC AutoScale uninstallation complete!"
     log "INFO" "${THANKS} ${BOLD}Thank you for using LXC AutoScale!${RESET}"
-    log "INFO" "${URL} ${BOLD}Repository: https://github.com/fabriziosalmi/proxmox-lxc-autoscale${RESET}"
+    log "INFO" "${URL} ${BOLD}Repository: https://github.com/MatrixMagician/proxmox-lxc-autoscale${RESET}"
 }
 
 main "$@"
