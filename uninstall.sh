@@ -75,7 +75,7 @@ backup_config() {
     if [ ! -f "$CONFIG_FILE" ]; then
         log "WARN" "Configuration file not found at $CONFIG_FILE"
         return 0
-    }
+    fi
 
     mkdir -p "$BACKUP_DIR" || {
         log "ERROR" "Failed to create backup directory at $BACKUP_DIR"
