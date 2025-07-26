@@ -325,5 +325,5 @@ echo "2. Check service status: ${BLUE}systemctl status lxc_autoscale.service${RE
 echo "3. View logs: ${BLUE}journalctl -u lxc_autoscale.service -f${RESET}"
 echo "4. View structured logs: ${BLUE}tail -f /var/log/lxc_autoscale.log | jq${RESET}"
 echo ""
-echo "${GREEN}${BOLD}✨ The refactored system provides enterprise-grade reliability and security!${RESET}"
+echo "${GREEN}${BOLD}✨ Thank you for installing fabriziosalmi's LXC AutoScale!${RESET}"
 echo ""
