@@ -14,10 +14,14 @@ readonly INSTALL_DIRS=(
     "/usr/local/bin/lxc_autoscale"
     "/etc/lxc_autoscale"
     "/var/lib/lxc_autoscale"
+    "/var/cache/lxc_autoscale"
+    "/tmp/lxc_autoscale_cache"
 )
 readonly LOG_FILES=(
     "/var/log/lxc_autoscale.log"
     "/var/log/lxc_autoscale.json"
+    "/var/log/lxc_autoscale_performance.log"
+    "/var/log/lxc_autoscale_memory.log"
 )
 
 # Define text styles and emojis using printf for better portability
@@ -121,6 +125,11 @@ remove_files() {
         log "INFO" "${CHECKMARK} Removed service file" || \
         log "WARN" "Service file not found or couldn't be removed"
 
+    # Clean up Python cache files
+    log "INFO" "Cleaning up Python cache files..."
+    find /usr/local/bin/lxc_autoscale -name "*.pyc" -delete 2>/dev/null || true
+    find /usr/local/bin/lxc_autoscale -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+
     # Remove installation directories
     for dir in "${INSTALL_DIRS[@]}"; do
         if [ -d "$dir" ]; then
@@ -140,6 +149,10 @@ remove_files() {
                 log "ERROR" "${CROSSMARK} Failed to remove $log_file"
         fi
     done
+    
+    # Remove any performance monitoring temporary files
+    rm -f /tmp/lxc_autoscale_*.tmp 2>/dev/null || true
+    rm -f /tmp/performance_*.log 2>/dev/null || true
 }
 
 # Main execution
@@ -152,8 +165,9 @@ main() {
     remove_files
     systemctl daemon-reload  # Reload systemd after service removal
 
-    log "INFO" "LXC AutoScale uninstallation complete!"
-    log "INFO" "${THANKS} ${BOLD}Thank you for using LXC AutoScale!${RESET}"
+    log "INFO" "LXC AutoScale v3.0 Performance Edition uninstallation complete!"
+    log "INFO" "${THANKS} ${BOLD}Thank you for using the Enhanced LXC AutoScale!${RESET}"
+    log "INFO" "All performance optimization files, caches, and monitoring data have been removed."
     log "INFO" "${URL} ${BOLD}Repository: https://github.com/MatrixMagician/proxmox-lxc-autoscale${RESET}"
 }
 

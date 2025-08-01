@@ -1,382 +1,672 @@
-"""Security validation utilities for the LXC autoscaling system."""
+"""Enhanced security validation and configuration hardening."""
 
-import os
 import re
+import os
 import logging
+import hashlib
+import secrets
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Union
+import ipaddress
+import yaml
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import base64
 
-from constants import (
-    MIN_CORES_LIMIT, MIN_MEMORY_LIMIT, MAX_CPU_THRESHOLD, MIN_CPU_THRESHOLD,
-    MAX_MEMORY_THRESHOLD, MIN_MEMORY_THRESHOLD
-)
-from error_handler import ValidationError
+
+@dataclass
+class SecurityViolation:
+    """Represents a security violation found during validation."""
+    severity: str  # 'critical', 'high', 'medium', 'low'
+    category: str  # 'injection', 'exposure', 'weak_config', etc.
+    message: str
+    location: str
+    recommendation: str
 
 
-class SecurityValidator:
-    """Provides security validation for inputs and operations."""
-    
-    # Allowed Proxmox commands
-    ALLOWED_PROXMOX_COMMANDS = {
-        'pct': ['config', 'set', 'start', 'stop', 'snapshot', 'clone', 'status'],
-        'qm': ['config', 'set', 'start', 'stop', 'snapshot', 'clone', 'status'],
-        'pvesh': ['get', 'set'],
-        'pvesm': ['status'],
-        'pvecm': ['status']
-    }
-    
-    # Dangerous shell characters and sequences
-    SHELL_INJECTION_PATTERNS = [
-        r'[;&|`$()]',  # Shell metacharacters
-        r'\\',         # Backslashes
-        r'\$\(',       # Command substitution
-        r'`',          # Backticks
-        r'>>?',        # Redirection
-        r'<<',         # Here documents
-        r'\|\|?',      # Pipes and OR
-        r'&&',         # AND
-    ]
-    
-    # Valid container ID pattern (numbers only)
-    CONTAINER_ID_PATTERN = re.compile(r'^\d+$')
-    
-    # Valid hostname pattern
-    HOSTNAME_PATTERN = re.compile(r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?$')
-    
-    # Valid snapshot name pattern
-    SNAPSHOT_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_\-]{0,39}$')
+@dataclass
+class ValidationResult:
+    """Result of security validation."""
+    is_valid: bool
+    violations: List[SecurityViolation]
+    warnings: List[str]
+    security_score: float  # 0-100
+
+
+class ConfigurationValidator:
+    """Validates configuration for security vulnerabilities."""
     
     def __init__(self):
-        """Initialize security validator."""
-        self.logger = logging.getLogger(__name__)
+        """Initialize configuration validator."""
+        self.dangerous_patterns = [
+            r'[;&|`$()]',  # Command injection patterns
+            r'\.\./',      # Path traversal
+            r'<script',    # XSS patterns
+            r'DROP\s+TABLE',  # SQL injection patterns
+            r'rm\s+-rf',   # Dangerous commands
+            r'eval\s*\(',  # Code evaluation
+        ]
+        
+        self.weak_passwords = {
+            'password', '123456', 'admin', 'root', 'guest',
+            'test', 'password123', 'admin123', 'qwerty'
+        }
+        
+        self.secure_defaults = {
+            'ssh_timeout': 30,
+            'max_concurrent_operations': 10,
+            'enable_logging': True,
+            'log_level': 'INFO',
+            'encryption_enabled': True
+        }
     
-    def validate_container_id(self, container_id: Union[str, int]) -> bool:
-        """Validate container ID format and range.
+    def validate_configuration(self, config: Dict[str, Any]) -> ValidationResult:
+        """Validate configuration for security issues.
         
         Args:
-            container_id: Container ID to validate
+            config: Configuration dictionary
             
         Returns:
-            True if valid, False otherwise
+            Validation result with violations and score
+        """
+        violations = []
+        warnings = []
+        
+        # Validate different configuration sections
+        violations.extend(self._validate_authentication_config(config))
+        violations.extend(self._validate_network_config(config))
+        violations.extend(self._validate_command_config(config))
+        violations.extend(self._validate_file_permissions(config))
+        violations.extend(self._validate_encryption_config(config))
+        violations.extend(self._validate_input_validation(config))
+        
+        # Check for missing security configurations
+        warnings.extend(self._check_missing_security_configs(config))
+        
+        # Calculate security score
+        security_score = self._calculate_security_score(violations)
+        
+        is_valid = not any(v.severity in ['critical', 'high'] for v in violations)
+        
+        return ValidationResult(
+            is_valid=is_valid,
+            violations=violations,
+            warnings=warnings,
+            security_score=security_score
+        )
+    
+    def _validate_authentication_config(self, config: Dict[str, Any]) -> List[SecurityViolation]:
+        """Validate authentication configuration."""
+        violations = []
+        
+        # Check for weak passwords
+        for key, value in config.items():
+            if 'password' in key.lower() and isinstance(value, str):
+                if value.lower() in self.weak_passwords or len(value) < 8:
+                    violations.append(SecurityViolation(
+                        severity='high',
+                        category='weak_auth',
+                        message=f'Weak password detected in {key}',
+                        location=key,
+                        recommendation='Use strong passwords with at least 12 characters, including mixed case, numbers, and symbols'
+                    ))
+        
+        # Check for default credentials
+        default_creds = ['admin:admin', 'root:root', 'guest:guest']
+        for key, value in config.items():
+            if isinstance(value, str) and any(cred in value for cred in default_creds):
+                violations.append(SecurityViolation(
+                    severity='critical',
+                    category='default_creds',
+                    message=f'Default credentials detected in {key}',
+                    location=key,
+                    recommendation='Change default credentials immediately'
+                ))
+        
+        # Check SSH key security
+        ssh_key_path = config.get('ssh_key_path')
+        if ssh_key_path:
+            try:
+                key_path = Path(ssh_key_path)
+                if key_path.exists():
+                    stat = key_path.stat()
+                    # Check if key file is too permissive
+                    if stat.st_mode & 0o077:  # Others can read/write
+                        violations.append(SecurityViolation(
+                            severity='high',
+                            category='file_permissions',
+                            message=f'SSH key file has overly permissive permissions: {ssh_key_path}',
+                            location='ssh_key_path',
+                            recommendation='Set permissions to 600 (chmod 600)'
+                        ))
+            except Exception as e:
+                logging.warning(f"Could not check SSH key permissions: {e}")
+        
+        return violations
+    
+    def _validate_network_config(self, config: Dict[str, Any]) -> List[SecurityViolation]:
+        """Validate network configuration."""
+        violations = []
+        
+        # Validate IP addresses
+        for key, value in config.items():
+            if 'host' in key.lower() or 'ip' in key.lower():
+                if isinstance(value, str) and value:
+                    try:
+                        ip = ipaddress.ip_address(value)
+                        # Warn about public IPs in certain contexts
+                        if ip.is_global and 'proxmox' in key.lower():
+                            violations.append(SecurityViolation(
+                                severity='medium',
+                                category='network_exposure',
+                                message=f'Public IP address used for Proxmox host: {value}',
+                                location=key,
+                                recommendation='Consider using VPN or private network for Proxmox access'
+                            ))
+                    except ValueError:
+                        # Not an IP address, might be hostname
+                        if value in ['localhost', '127.0.0.1', '0.0.0.0']:
+                            continue
+                        # Check for suspicious hostnames
+                        if any(char in value for char in ['<', '>', '"', "'"]):
+                            violations.append(SecurityViolation(
+                                severity='medium',
+                                category='injection',
+                                message=f'Suspicious characters in hostname: {value}',
+                                location=key,
+                                recommendation='Use only valid hostname characters'
+                            ))
+        
+        # Check port configurations
+        for key, value in config.items():
+            if 'port' in key.lower() and isinstance(value, int):
+                if value < 1024 and value != 22:  # Privileged ports (except SSH)
+                    violations.append(SecurityViolation(
+                        severity='medium',
+                        category='network_config',
+                        message=f'Using privileged port {value} for {key}',
+                        location=key,
+                        recommendation='Consider using unprivileged ports (>1024) where possible'
+                    ))
+        
+        return violations
+    
+    def _validate_command_config(self, config: Dict[str, Any]) -> List[SecurityViolation]:
+        """Validate command configuration for injection vulnerabilities."""
+        violations = []
+        
+        for key, value in config.items():
+            if isinstance(value, str):
+                # Check for command injection patterns
+                for pattern in self.dangerous_patterns:
+                    if re.search(pattern, value, re.IGNORECASE):
+                        violations.append(SecurityViolation(
+                            severity='high',
+                            category='injection',
+                            message=f'Potential command injection pattern found in {key}: {pattern}',
+                            location=key,
+                            recommendation='Sanitize input and use parameterized commands'
+                        ))
+                
+                # Check for absolute paths in suspicious contexts
+                if ('command' in key.lower() or 'path' in key.lower()) and value.startswith('/'):
+                    if not os.path.exists(value):
+                        violations.append(SecurityViolation(
+                            severity='medium',
+                            category='path_validation',
+                            message=f'Path does not exist: {value}',
+                            location=key,
+                            recommendation='Verify path exists and is accessible'
+                        ))
+        
+        return violations
+    
+    def _validate_file_permissions(self, config: Dict[str, Any]) -> List[SecurityViolation]:
+        """Validate file permissions and paths."""
+        violations = []
+        
+        sensitive_files = ['key', 'cert', 'config', 'log']
+        
+        for key, value in config.items():
+            if isinstance(value, str) and any(sf in key.lower() for sf in sensitive_files):
+                if value and os.path.exists(value):
+                    try:
+                        stat = os.stat(value)
+                        # Check if file is world-readable
+                        if stat.st_mode & 0o044:  # World or group readable
+                            violations.append(SecurityViolation(
+                                severity='medium',
+                                category='file_permissions',
+                                message=f'Sensitive file is readable by others: {value}',
+                                location=key,
+                                recommendation='Restrict file permissions (chmod 600 or 640)'
+                            ))
+                    except Exception as e:
+                        logging.warning(f"Could not check permissions for {value}: {e}")
+        
+        return violations
+    
+    def _validate_encryption_config(self, config: Dict[str, Any]) -> List[SecurityViolation]:
+        """Validate encryption configuration."""
+        violations = []
+        
+        # Check if encryption is disabled
+        if not config.get('encryption_enabled', True):
+            violations.append(SecurityViolation(
+                severity='high',
+                category='encryption',
+                message='Encryption is disabled',
+                location='encryption_enabled',
+                recommendation='Enable encryption for sensitive data'
+            ))
+        
+        # Check for weak encryption settings
+        tls_version = config.get('min_tls_version')
+        if tls_version and tls_version < 1.2:
+            violations.append(SecurityViolation(
+                severity='high',
+                category='encryption',
+                message=f'Weak TLS version configured: {tls_version}',
+                location='min_tls_version',
+                recommendation='Use TLS 1.2 or higher'
+            ))
+        
+        return violations
+    
+    def _validate_input_validation(self, config: Dict[str, Any]) -> List[SecurityViolation]:
+        """Validate input validation settings."""
+        violations = []
+        
+        # Check if input validation is disabled
+        if config.get('disable_input_validation', False):
+            violations.append(SecurityViolation(
+                severity='critical',
+                category='input_validation',
+                message='Input validation is disabled',
+                location='disable_input_validation',
+                recommendation='Enable input validation to prevent injection attacks'
+            ))
+        
+        # Check timeout settings
+        timeouts = ['ssh_timeout', 'command_timeout', 'api_timeout']
+        for timeout_key in timeouts:
+            timeout_value = config.get(timeout_key)
+            if timeout_value and timeout_value > 300:  # 5 minutes
+                violations.append(SecurityViolation(
+                    severity='medium',
+                    category='dos_protection',
+                    message=f'Long timeout configured: {timeout_key}={timeout_value}s',
+                    location=timeout_key,
+                    recommendation='Use shorter timeouts to prevent resource exhaustion'
+                ))
+        
+        return violations
+    
+    def _check_missing_security_configs(self, config: Dict[str, Any]) -> List[str]:
+        """Check for missing security configurations."""
+        warnings = []
+        
+        recommended_configs = [
+            'max_retry_attempts',
+            'rate_limit_enabled',
+            'audit_logging_enabled',
+            'secure_random_enabled',
+            'certificate_validation',
+        ]
+        
+        for rec_config in recommended_configs:
+            if rec_config not in config:
+                warnings.append(f'Recommended security setting missing: {rec_config}')
+        
+        return warnings
+    
+    def _calculate_security_score(self, violations: List[SecurityViolation]) -> float:
+        """Calculate security score based on violations.
+        
+        Args:
+            violations: List of security violations
+            
+        Returns:
+            Security score from 0-100
+        """
+        base_score = 100.0
+        
+        severity_penalties = {
+            'critical': 25.0,
+            'high': 15.0,
+            'medium': 8.0,
+            'low': 3.0
+        }
+        
+        for violation in violations:
+            penalty = severity_penalties.get(violation.severity, 5.0)
+            base_score -= penalty
+        
+        return max(0.0, base_score)
+
+
+class SecureConfigManager:
+    """Manages secure configuration with encryption."""
+    
+    def __init__(self, master_key: Optional[bytes] = None):
+        """Initialize secure config manager.
+        
+        Args:
+            master_key: Master encryption key (generates one if None)
+        """
+        if master_key:
+            self.cipher = Fernet(master_key)
+        else:
+            self.cipher = Fernet(Fernet.generate_key())
+        
+        self.validator = ConfigurationValidator()
+    
+    def encrypt_sensitive_value(self, value: str) -> str:
+        """Encrypt a sensitive configuration value.
+        
+        Args:
+            value: Value to encrypt
+            
+        Returns:
+            Encrypted value as base64 string
+        """
+        encrypted = self.cipher.encrypt(value.encode())
+        return base64.b64encode(encrypted).decode()
+    
+    def decrypt_sensitive_value(self, encrypted_value: str) -> str:
+        """Decrypt a sensitive configuration value.
+        
+        Args:
+            encrypted_value: Encrypted value as base64 string
+            
+        Returns:
+            Decrypted value
+        """
+        encrypted_bytes = base64.b64decode(encrypted_value.encode())
+        decrypted = self.cipher.decrypt(encrypted_bytes)
+        return decrypted.decode()
+    
+    def secure_config_dict(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Secure a configuration dictionary by encrypting sensitive values.
+        
+        Args:
+            config: Configuration dictionary
+            
+        Returns:
+            Configuration with encrypted sensitive values
+        """
+        sensitive_keys = [
+            'password', 'secret', 'key', 'token', 'credential'
+        ]
+        
+        secured_config = config.copy()
+        
+        for key, value in config.items():
+            if isinstance(value, str) and any(sk in key.lower() for sk in sensitive_keys):
+                if not value.startswith('ENCRYPTED:'):
+                    secured_config[key] = f"ENCRYPTED:{self.encrypt_sensitive_value(value)}"
+        
+        return secured_config
+    
+    def load_secure_config(self, config_path: str) -> Dict[str, Any]:
+        """Load and decrypt a secure configuration file.
+        
+        Args:
+            config_path: Path to configuration file
+            
+        Returns:
+            Decrypted configuration dictionary
+            
+        Raises:
+            FileNotFoundError: If config file doesn't exist
+            yaml.YAMLError: If config file is invalid YAML
+        """
+        if not os.path.exists(config_path):
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+        
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        # Decrypt encrypted values
+        for key, value in config.items():
+            if isinstance(value, str) and value.startswith('ENCRYPTED:'):
+                encrypted_value = value[10:]  # Remove 'ENCRYPTED:' prefix
+                config[key] = self.decrypt_sensitive_value(encrypted_value)
+        
+        return config
+    
+    def validate_and_secure_config(self, config: Dict[str, Any]) -> Tuple[Dict[str, Any], ValidationResult]:
+        """Validate and secure a configuration.
+        
+        Args:
+            config: Configuration dictionary
+            
+        Returns:
+            Tuple of (secured_config, validation_result)
+        """
+        # First validate the configuration
+        validation_result = self.validator.validate_configuration(config)
+        
+        # Then secure it
+        secured_config = self.secure_config_dict(config)
+        
+        return secured_config, validation_result
+    
+    @staticmethod
+    def generate_secure_password(length: int = 16) -> str:
+        """Generate a cryptographically secure password.
+        
+        Args:
+            length: Password length
+            
+        Returns:
+            Secure random password
+        """
+        import string
+        
+        characters = string.ascii_letters + string.digits + "!@#$%^&*"
+        password = ''.join(secrets.choice(characters) for _ in range(length))
+        
+        return password
+    
+    @staticmethod
+    def hash_password(password: str, salt: Optional[bytes] = None) -> Tuple[str, bytes]:
+        """Hash a password using PBKDF2.
+        
+        Args:
+            password: Password to hash
+            salt: Salt bytes (generates one if None)
+            
+        Returns:
+            Tuple of (hashed_password_b64, salt)
+        """
+        if salt is None:
+            salt = os.urandom(32)
+        
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=100000,
+        )
+        
+        key = kdf.derive(password.encode())
+        return base64.b64encode(key).decode(), salt
+    
+    @staticmethod
+    def verify_password(password: str, hashed_password: str, salt: bytes) -> bool:
+        """Verify a password against its hash.
+        
+        Args:
+            password: Password to verify
+            hashed_password: Base64 encoded hash
+            salt: Salt used for hashing
+            
+        Returns:
+            True if password matches
         """
         try:
-            ctid_str = str(container_id).strip()
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=salt,
+                iterations=100000,
+            )
             
-            # Check pattern
-            if not self.CONTAINER_ID_PATTERN.match(ctid_str):
-                self.logger.warning(f"Invalid container ID format: {container_id}")
-                return False
-            
-            # Check range (Proxmox container IDs are typically 100-999999)
-            ctid_int = int(ctid_str)
-            if not (100 <= ctid_int <= 999999):
-                self.logger.warning(f"Container ID out of valid range: {container_id}")
-                return False
-            
+            kdf.verify(password.encode(), base64.b64decode(hashed_password))
             return True
-            
-        except (ValueError, TypeError):
-            self.logger.warning(f"Invalid container ID type: {container_id}")
+        except Exception:
             return False
+
+
+class InputSanitizer:
+    """Sanitizes and validates input to prevent injection attacks."""
     
-    def validate_hostname(self, hostname: str) -> bool:
-        """Validate hostname format.
+    def __init__(self):
+        """Initialize input sanitizer."""
+        self.allowed_container_id_pattern = re.compile(r'^[0-9]+$')
+        self.allowed_hostname_pattern = re.compile(r'^[a-zA-Z0-9.-]+$')
+        self.dangerous_command_patterns = [
+            r'[;&|`$()]',
+            r'\.\./',
+            r'rm\s+',
+            r'dd\s+',
+            r'mkfs',
+            r'format'
+        ]
+    
+    def sanitize_container_id(self, container_id: str) -> Optional[str]:
+        """Sanitize container ID.
         
         Args:
-            hostname: Hostname to validate
+            container_id: Container ID to sanitize
             
         Returns:
-            True if valid, False otherwise
+            Sanitized container ID or None if invalid
+        """
+        if not isinstance(container_id, str):
+            return None
+        
+        # Remove whitespace
+        container_id = container_id.strip()
+        
+        # Validate format
+        if not self.allowed_container_id_pattern.match(container_id):
+            return None
+        
+        # Check reasonable range
+        try:
+            cid = int(container_id)
+            if cid < 100 or cid > 999999:
+                return None
+        except ValueError:
+            return None
+        
+        return container_id
+    
+    def sanitize_hostname(self, hostname: str) -> Optional[str]:
+        """Sanitize hostname.
+        
+        Args:
+            hostname: Hostname to sanitize
+            
+        Returns:
+            Sanitized hostname or None if invalid
         """
         if not isinstance(hostname, str):
-            return False
+            return None
         
+        # Remove whitespace
         hostname = hostname.strip()
         
-        # Check length and pattern
-        if not (1 <= len(hostname) <= 63) or not self.HOSTNAME_PATTERN.match(hostname):
-            self.logger.warning(f"Invalid hostname format: {hostname}")
-            return False
+        # Validate format
+        if not self.allowed_hostname_pattern.match(hostname):
+            return None
         
-        return True
-    
-    def validate_snapshot_name(self, snapshot_name: str) -> bool:
-        """Validate snapshot name format.
+        # Check length
+        if len(hostname) > 253:
+            return None
         
-        Args:
-            snapshot_name: Snapshot name to validate
-            
-        Returns:
-            True if valid, False otherwise
-        """
-        if not isinstance(snapshot_name, str):
-            return False
-        
-        snapshot_name = snapshot_name.strip()
-        
-        if not (1 <= len(snapshot_name) <= 40) or not self.SNAPSHOT_NAME_PATTERN.match(snapshot_name):
-            self.logger.warning(f"Invalid snapshot name format: {snapshot_name}")
-            return False
-        
-        return True
+        return hostname
     
     def validate_command_safety(self, command: str) -> bool:
-        """Validate that a command is safe to execute.
+        """Validate that command is safe to execute.
         
         Args:
             command: Command to validate
             
         Returns:
-            True if safe, False otherwise
+            True if command appears safe
         """
         if not isinstance(command, str):
-            self.logger.error("Command must be a string")
             return False
         
-        command = command.strip()
+        # Check for dangerous patterns
+        for pattern in self.dangerous_command_patterns:
+            if re.search(pattern, command, re.IGNORECASE):
+                return False
         
-        if not command:
-            self.logger.error("Empty command not allowed")
+        # Whitelist approach for Proxmox commands
+        allowed_commands = ['pct', 'qm', 'pvesh', 'pvesm', 'pvecm']
+        command_parts = command.split()
+        
+        if not command_parts or command_parts[0] not in allowed_commands:
             return False
-        
-        # Check for shell injection patterns
-        for pattern in self.SHELL_INJECTION_PATTERNS:
-            if re.search(pattern, command):
-                self.logger.warning(f"Potentially unsafe command detected: {command}")
-                return False
-        
-        # Validate command structure
-        parts = command.split()
-        if not parts:
-            return False
-        
-        base_command = parts[0]
-        
-        # Check if it's an allowed Proxmox command
-        if base_command in self.ALLOWED_PROXMOX_COMMANDS:
-            if len(parts) > 1 and parts[1] not in self.ALLOWED_PROXMOX_COMMANDS[base_command]:
-                self.logger.warning(f"Disallowed subcommand for {base_command}: {parts[1]}")
-                return False
-            return True
-        
-        # Allow some basic system commands
-        allowed_system_commands = ['echo', 'cat', 'ls', 'ps', 'free', 'uptime']
-        if base_command in allowed_system_commands:
-            return True
-        
-        self.logger.warning(f"Command not in allowlist: {base_command}")
-        return False
-    
-    def validate_resource_limits(
-        self,
-        cpu_cores: Optional[int] = None,
-        memory_mb: Optional[int] = None,
-        cpu_threshold: Optional[float] = None,
-        memory_threshold: Optional[float] = None
-    ) -> bool:
-        """Validate resource limits and thresholds.
-        
-        Args:
-            cpu_cores: Number of CPU cores
-            memory_mb: Amount of memory in MB
-            cpu_threshold: CPU threshold percentage
-            memory_threshold: Memory threshold percentage
-            
-        Returns:
-            True if all provided values are valid
-        """
-        # Validate CPU cores
-        if cpu_cores is not None:
-            if not isinstance(cpu_cores, int) or cpu_cores < MIN_CORES_LIMIT:
-                self.logger.warning(f"Invalid CPU cores value: {cpu_cores}")
-                return False
-            
-            # Reasonable upper limit
-            if cpu_cores > 128:
-                self.logger.warning(f"CPU cores value too high: {cpu_cores}")
-                return False
-        
-        # Validate memory
-        if memory_mb is not None:
-            if not isinstance(memory_mb, int) or memory_mb < MIN_MEMORY_LIMIT:
-                self.logger.warning(f"Invalid memory value: {memory_mb}")
-                return False
-            
-            # Reasonable upper limit (1TB)
-            if memory_mb > 1048576:
-                self.logger.warning(f"Memory value too high: {memory_mb}")
-                return False
-        
-        # Validate CPU threshold
-        if cpu_threshold is not None:
-            if not isinstance(cpu_threshold, (int, float)):
-                return False
-            if not (MIN_CPU_THRESHOLD <= cpu_threshold <= MAX_CPU_THRESHOLD):
-                self.logger.warning(f"CPU threshold out of range: {cpu_threshold}")
-                return False
-        
-        # Validate memory threshold
-        if memory_threshold is not None:
-            if not isinstance(memory_threshold, (int, float)):
-                return False
-            if not (MIN_MEMORY_THRESHOLD <= memory_threshold <= MAX_MEMORY_THRESHOLD):
-                self.logger.warning(f"Memory threshold out of range: {memory_threshold}")
-                return False
         
         return True
     
-    def validate_file_path(self, file_path: str, allowed_directories: Optional[List[str]] = None) -> bool:
-        """Validate file path for security.
+    def sanitize_path(self, path: str) -> Optional[str]:
+        """Sanitize file path.
         
         Args:
-            file_path: File path to validate
-            allowed_directories: List of allowed directory prefixes
+            path: File path to sanitize
             
         Returns:
-            True if path is safe, False otherwise
+            Sanitized path or None if invalid
         """
-        if not isinstance(file_path, str):
-            return False
+        if not isinstance(path, str):
+            return None
         
+        # Remove dangerous patterns
+        if '..' in path or path.startswith('/etc/passwd') or path.startswith('/etc/shadow'):
+            return None
+        
+        # Normalize path
         try:
-            # Resolve path to prevent directory traversal
-            resolved_path = Path(file_path).resolve()
-            
-            # Check for directory traversal attempts
-            if '..' in file_path or file_path.startswith('/'):
-                if not any(str(resolved_path).startswith(allowed_dir) for allowed_dir in (allowed_directories or [])):
-                    self.logger.warning(f"Potentially unsafe file path: {file_path}")
-                    return False
-            
-            # Check if path exists and is accessible
-            if resolved_path.exists() and not os.access(resolved_path, os.R_OK):
-                self.logger.warning(f"File not accessible: {file_path}")
-                return False
-            
-            return True
-            
-        except (OSError, ValueError) as e:
-            self.logger.warning(f"Invalid file path: {file_path} - {e}")
-            return False
-    
-    def validate_configuration_values(self, config: Dict[str, Any]) -> List[str]:
-        """Validate configuration values for security and correctness.
-        
-        Args:
-            config: Configuration dictionary to validate
-            
-        Returns:
-            List of validation error messages
-        """
-        errors = []
-        
-        # Validate numeric ranges
-        numeric_validations = {
-            'poll_interval': (30, 3600),  # 30 seconds to 1 hour
-            'reserve_cpu_percent': (0, 50),  # 0% to 50%
-            'reserve_memory_mb': (512, 16384),  # 512MB to 16GB
-            'off_peak_start': (0, 23),
-            'off_peak_end': (0, 23),
-            'cpu_upper_threshold': (MIN_CPU_THRESHOLD, MAX_CPU_THRESHOLD),
-            'cpu_lower_threshold': (MIN_CPU_THRESHOLD, MAX_CPU_THRESHOLD),
-            'memory_upper_threshold': (MIN_MEMORY_THRESHOLD, MAX_MEMORY_THRESHOLD),
-            'memory_lower_threshold': (MIN_MEMORY_THRESHOLD, MAX_MEMORY_THRESHOLD),
-            'min_cores': (MIN_CORES_LIMIT, 128),
-            'max_cores': (MIN_CORES_LIMIT, 128),
-            'min_memory': (MIN_MEMORY_LIMIT, 1048576),
-        }
-        
-        for key, (min_val, max_val) in numeric_validations.items():
-            if key in config:
-                value = config[key]
-                if not isinstance(value, (int, float)) or not (min_val <= value <= max_val):
-                    errors.append(f"Invalid {key}: {value} (must be between {min_val} and {max_val})")
-        
-        # Validate string values
-        if 'behaviour' in config:
-            valid_behaviors = ['normal', 'conservative', 'aggressive']
-            if config['behaviour'] not in valid_behaviors:
-                errors.append(f"Invalid behaviour: {config['behaviour']} (must be one of {valid_behaviors})")
-        
-        # Validate container IDs in ignore list
-        if 'ignore_lxc' in config and isinstance(config['ignore_lxc'], list):
-            for ctid in config['ignore_lxc']:
-                if not self.validate_container_id(ctid):
-                    errors.append(f"Invalid container ID in ignore list: {ctid}")
-        
-        # Validate SSH configuration
-        ssh_keys = ['ssh_host', 'ssh_user', 'ssh_port']
-        ssh_provided = any(key in config for key in ssh_keys)
-        
-        if ssh_provided:
-            if 'ssh_port' in config:
-                port = config['ssh_port']
-                if not isinstance(port, int) or not (1 <= port <= 65535):
-                    errors.append(f"Invalid SSH port: {port}")
-            
-            if 'ssh_user' in config:
-                user = config['ssh_user']
-                if not isinstance(user, str) or not user.strip():
-                    errors.append("SSH user cannot be empty")
-        
-        return errors
-    
-    def sanitize_log_message(self, message: str) -> str:
-        """Sanitize log message to prevent log injection.
-        
-        Args:
-            message: Message to sanitize
-            
-        Returns:
-            Sanitized message
-        """
-        if not isinstance(message, str):
-            return str(message)
-        
-        # Remove or replace potentially dangerous characters
-        sanitized = re.sub(r'[\r\n\t]', ' ', message)
-        sanitized = re.sub(r'[^\x20-\x7E]', '?', sanitized)  # Replace non-printable chars
-        
-        # Limit length
-        if len(sanitized) > 1000:
-            sanitized = sanitized[:997] + '...'
-        
-        return sanitized
-    
-    def validate_network_config(self, network_config: Dict[str, Any]) -> List[str]:
-        """Validate network configuration for security.
-        
-        Args:
-            network_config: Network configuration to validate
-            
-        Returns:
-            List of validation errors
-        """
-        errors = []
-        
-        # Validate network type
-        network_type = network_config.get('clone_network_type')
-        if network_type and network_type not in ['dhcp', 'static']:
-            errors.append(f"Invalid network type: {network_type}")
-        
-        # Validate static IP range
-        if network_type == 'static':
-            static_range = network_config.get('static_ip_range', [])
-            if not isinstance(static_range, list):
-                errors.append("static_ip_range must be a list")
-            else:
-                ip_pattern = re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
-                for ip in static_range:
-                    if not isinstance(ip, str) or not ip_pattern.match(ip):
-                        errors.append(f"Invalid IP address in static range: {ip}")
-                    else:
-                        # Validate IP octets
-                        octets = ip.split('.')
-                        if not all(0 <= int(octet) <= 255 for octet in octets):
-                            errors.append(f"Invalid IP address octets: {ip}")
-        
-        return errors
+            normalized = os.path.normpath(path)
+            return normalized
+        except Exception:
+            return None
 
 
-# Global security validator instance
-security_validator = SecurityValidator()
+# Global instances
+_global_validator = ConfigurationValidator()
+_global_sanitizer = InputSanitizer()
+
+
+def get_security_validator() -> ConfigurationValidator:
+    """Get the global security validator."""
+    return _global_validator
+
+
+def get_input_sanitizer() -> InputSanitizer:
+    """Get the global input sanitizer."""
+    return _global_sanitizer
+
+
+def secure_configuration_decorator(func: Callable) -> Callable:
+    """Decorator to validate configuration parameters."""
+    def wrapper(config, *args, **kwargs):
+        validator = get_security_validator()
+        validation_result = validator.validate_configuration(config)
+        
+        if not validation_result.is_valid:
+            critical_violations = [v for v in validation_result.violations if v.severity == 'critical']
+            if critical_violations:
+                raise ValueError(f"Critical security violations found: {[v.message for v in critical_violations]}")
+        
+        return func(config, *args, **kwargs)
+    
+    return wrapper

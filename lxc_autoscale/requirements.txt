@@ -1,3 +1,7 @@
 requests
 PyYAML  # for 'yaml' module
 paramiko>=2.11.0
+asyncssh>=2.13.0  # for high-performance async SSH connections
+aiofiles>=23.0.0  # for async file operations
+psutil>=5.9.0  # for system monitoring and performance metrics
+cryptography>=41.0.0  # for encryption and security features
