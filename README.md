@@ -1,4 +1,4 @@
-# 🚀 LXC AutoScale v3.0 - Performance Edition
+# 🚀 LXC AutoScale v3.0
 
 **LXC AutoScale** is an enterprise-grade, high-performance resource management daemon specifically designed for Proxmox environments. It automatically adjusts CPU and memory allocations with no downtime and can clone LXC containers based on real-time usage metrics and predefined thresholds. **Version 3.0** introduces groundbreaking performance optimizations, delivering **60-80% faster processing**, enhanced reliability, and support for **10x more concurrent containers**.
 
@@ -15,7 +15,7 @@
 | 🐳    | [Docker](https://github.com/MatrixMagician/proxmox-lxc-autoscale/blob/main/docs/lxc_autoscale/README.md#docker) |
 | 🐧    | [no Docker](https://github.com/MatrixMagician/proxmox-lxc-autoscale/blob/main/README.md#quick-start) |
 
-## ⚡ What's New in v3.0 - Performance Edition
+## ⚡ What's New in v3.0
 
 ### 🚀 **Performance Breakthroughs**
 - **60-80% Faster Processing** - Async operations with concurrent container handling
@@ -149,28 +149,6 @@ If the conditions set in the configuration are met, you will quickly observe hig
 > Just update the `/lib/systemd/system/lxcfs.service` file, execute `systemctl daemon-reload && systemctl restart lxcfs` and when you are ready to apply the fix restart the LXC containers.
 > 
 > _Tnx to No-Pen9082 to point me out to that. [Here](https://forum.proxmox.com/threads/lxc-containers-shows-hosts-load-average.45724/page-2) the Proxmox forum thread on the topic._
-
-## 📈 Performance Benchmarks
-
-### Real-World Performance Improvements
-
-| Metric | v2.0 (Legacy) | v3.0 (Performance Edition) | Improvement |
-|--------|---------------|----------------------------|-------------|
-| **Processing Time** | 45.2s | 12.8s | **64% faster** |
-| **Memory Usage** | 156MB | 94MB | **40% reduction** |
-| **Concurrent Containers** | 25 | 250+ | **10x capacity** |
-| **Operation Success Rate** | 89.3% | 98.7% | **90% fewer failures** |
-| **Cache Hit Rate** | N/A | 87.2% | **New feature** |
-| **Error Recovery** | Manual | Automatic | **90% improvement** |
-
-### Scalability Comparison
-
-```
-Container Count vs Processing Time
-
-v2.0 Legacy:     ████████████████████████████████████████ 45s (25 containers)
-v3.0 Performance: ████████████ 12s (250+ containers)
-```
 
 ### Architecture Overview
 
