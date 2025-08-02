@@ -10,6 +10,7 @@ import time
 from async_scaling_orchestrator import AsyncScalingOrchestrator
 from config_manager import config_manager
 from lxc_utils import collect_container_data
+from async_lxc_utils import get_async_lxc_utils, close_async_lxc_utils
 from structured_logger import setup_structured_logging
 
 
@@ -19,6 +20,7 @@ class AsyncLXCAutoscaler:
     def __init__(self):
         """Initialize the async autoscaler."""
         self.orchestrator: AsyncScalingOrchestrator = None
+        self.async_utils = None
         self.running = False
         self.shutdown_event = asyncio.Event()
         
@@ -27,6 +29,9 @@ class AsyncLXCAutoscaler:
         try:
             # Setup structured logging
             setup_structured_logging()
+            
+            # Initialize async LXC utilities
+            self.async_utils = get_async_lxc_utils()
             
             # Initialize the async orchestrator
             self.orchestrator = AsyncScalingOrchestrator(
@@ -53,9 +58,13 @@ class AsyncLXCAutoscaler:
             Dictionary containing container resource usage data
         """
         try:
-            # Run container data collection in executor to avoid blocking
-            loop = asyncio.get_event_loop()
-            container_data = await loop.run_in_executor(None, collect_container_data)
+            # Use async container data collection if available
+            if self.async_utils:
+                container_data = await self.async_utils.collect_container_data()
+            else:
+                # Fallback to sync method in executor
+                loop = asyncio.get_event_loop()
+                container_data = await loop.run_in_executor(None, collect_container_data)
             
             logging.info(f"Collected data for {len(container_data)} containers")
             return container_data
@@ -173,6 +182,10 @@ class AsyncLXCAutoscaler:
         
         if self.orchestrator:
             await self.orchestrator.cleanup()
+        
+        # Close async utilities
+        if self.async_utils:
+            await close_async_lxc_utils()
         
         logging.info("Async autoscaler shutdown completed")
     

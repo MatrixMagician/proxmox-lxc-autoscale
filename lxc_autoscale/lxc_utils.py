@@ -13,6 +13,18 @@ try:
 except ImportError:
     logging.error("Paramiko package not installed. SSH functionality disabled.")
 
+try:
+    from proxmox_api_client import (
+        get_proxmox_client, 
+        ProxmoxAPIError, 
+        ProxmoxConnectionError,
+        ProxmoxAuthenticationError
+    )
+    PROXMOX_API_AVAILABLE = True
+except ImportError:
+    logging.warning("Proxmox API client not available. Falling back to command execution.")
+    PROXMOX_API_AVAILABLE = False
+
 from config import (BACKUP_DIR,  IGNORE_LXC, LOG_FILE,
                     LXC_TIER_ASSOCIATIONS, PROXMOX_HOSTNAME, config, get_config_value)
 
@@ -125,6 +137,24 @@ def run_remote_command(cmd: str, timeout: int = 30) -> Optional[str]:
 
 def get_containers() -> List[str]:
     """Return list of container IDs, excluding ignored ones."""
+    # Try Proxmox API first if available
+    if PROXMOX_API_AVAILABLE and config.get('DEFAULT', {}).get('use_proxmox_api', True):
+        try:
+            client = get_proxmox_client()
+            container_ids = client.get_container_ids()
+            
+            # Filter out ignored containers
+            filtered_containers = [
+                ctid for ctid in container_ids 
+                if ctid and not is_ignored(ctid)
+            ]
+            logging.debug(f"Found containers via API: {filtered_containers}, ignored: {IGNORE_LXC}")
+            return filtered_containers
+            
+        except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
+            logging.warning(f"Proxmox API failed, falling back to command execution: {e}")
+    
+    # Fallback to command execution
     containers = run_command("pct list | awk 'NR>1 {print $1}'")
     if not containers:
         return []
@@ -135,7 +165,7 @@ def get_containers() -> List[str]:
         ctid for ctid in container_list 
         if ctid and not is_ignored(ctid)
     ]
-    logging.debug(f"Found containers: {filtered_containers}, ignored: {IGNORE_LXC}")
+    logging.debug(f"Found containers via command: {filtered_containers}, ignored: {IGNORE_LXC}")
     return filtered_containers
 
 def is_ignored(ctid: str) -> bool:
@@ -153,25 +183,44 @@ def is_container_running(ctid: str) -> bool:
     Returns:
         True if the container is running, False otherwise.
     """
+    # Try Proxmox API first if available
+    if PROXMOX_API_AVAILABLE and config.get('DEFAULT', {}).get('use_proxmox_api', True):
+        try:
+            client = get_proxmox_client()
+            running = client.is_container_running(ctid)
+            logging.debug(f"Container {ctid} running status via API: {running}")
+            return running
+            
+        except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
+            logging.warning(f"Proxmox API failed for container {ctid}, falling back to command: {e}")
+    
+    # Fallback to command execution
     status = run_command(f"pct status {ctid}")
     running = bool(status and "status: running" in status.lower())
-    logging.debug(f"Container {ctid} running status: {running}")
+    logging.debug(f"Container {ctid} running status via command: {running}")
     return running
 
 
-def backup_container_settings(ctid: str, settings: Dict[str, Any]) -> None:
+def backup_container_settings(ctid: str, settings: Optional[Dict[str, Any]] = None) -> None:
     """Backup container configuration to JSON file.
 
     Args:
         ctid: The container ID.
-        settings: The container settings to backup.
+        settings: The container settings to backup. If None, fetch from API.
     """
     try:
+        # If no settings provided, fetch current configuration
+        if settings is None:
+            settings = get_container_current_config(ctid)
+            if not settings:
+                logging.warning(f"Could not fetch configuration for container {ctid}")
+                return
+        
         os.makedirs(BACKUP_DIR, exist_ok=True)
         backup_file = os.path.join(BACKUP_DIR, f"{ctid}_backup.json")
         with lock:
             with open(backup_file, 'w', encoding='utf-8') as f:
-                json.dump(settings, f)
+                json.dump(settings, f, indent=2)
         logging.debug("Backup saved for container %s: %s", ctid, settings)
     except Exception as e:  # pylint: disable=broad-except
         logging.error("Failed to backup settings for %s: %s", ctid, str(e))
@@ -210,6 +259,25 @@ def rollback_container_settings(ctid: str) -> None:
     settings = load_backup_settings(ctid)
     if settings:
         logging.info("Rolling back container %s to backup settings", ctid)
+        
+        # Try Proxmox API first if available
+        if PROXMOX_API_AVAILABLE and config.get('DEFAULT', {}).get('use_proxmox_api', True):
+            try:
+                client = get_proxmox_client()
+                update_params = {
+                    'cores': settings['cores'],
+                    'memory': settings['memory']
+                }
+                
+                success = client.update_container_config(ctid, **update_params)
+                if success:
+                    logging.info(f"Rolled back container {ctid} via API")
+                    return
+                    
+            except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
+                logging.warning(f"Proxmox API rollback failed for container {ctid}, falling back to command: {e}")
+        
+        # Fallback to command execution
         run_command(f"pct set {ctid} -cores {settings['cores']}")
         run_command(f"pct set {ctid} -memory {settings['memory']}")
 
@@ -276,6 +344,54 @@ def get_total_memory() -> int:
     return available_memory
 
 
+def get_container_current_config(ctid: str) -> Optional[Dict[str, Any]]:
+    """Get current container configuration.
+    
+    Args:
+        ctid: The container ID.
+        
+    Returns:
+        Container configuration dictionary or None if failed.
+    """
+    # Try Proxmox API first if available
+    if PROXMOX_API_AVAILABLE and config.get('DEFAULT', {}).get('use_proxmox_api', True):
+        try:
+            client = get_proxmox_client()
+            container_config = client.get_container_config(ctid)
+            
+            # Extract relevant fields for backward compatibility
+            settings = {
+                'cores': container_config.get('cores', 1),
+                'memory': container_config.get('memory', 512),
+                'full_config': container_config  # Store full config for future use
+            }
+            
+            logging.debug(f"Retrieved config for container {ctid} via API")
+            return settings
+            
+        except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
+            logging.warning(f"Proxmox API failed for container {ctid} config, falling back to command: {e}")
+    
+    # Fallback to command execution
+    try:
+        cores_output = run_command(f"pct config {ctid} | grep cores | awk '{{print $2}}'")
+        memory_output = run_command(f"pct config {ctid} | grep memory | awk '{{print $2}}'")
+        
+        cores = int(cores_output) if cores_output else 1
+        memory = int(memory_output) if memory_output else 512
+        
+        settings = {
+            'cores': cores,
+            'memory': memory
+        }
+        
+        logging.debug(f"Retrieved config for container {ctid} via command")
+        return settings
+        
+    except Exception as e:
+        logging.error(f"Failed to get config for container {ctid}: {e}")
+        return None
+
 def get_cpu_usage(ctid: str) -> float:
     """Get container CPU usage using multiple fallback methods.
 
@@ -285,6 +401,30 @@ def get_cpu_usage(ctid: str) -> float:
     Returns:
         The CPU usage as a float percentage (0.0 - 100.0).
     """
+    # Try Proxmox API RRD data first if available
+    if PROXMOX_API_AVAILABLE and config.get('DEFAULT', {}).get('use_proxmox_api', True):
+        try:
+            client = get_proxmox_client()
+            rrd_data = client.get_container_rrd_data(ctid, timeframe='hour')
+            
+            if rrd_data and len(rrd_data) > 0:
+                # Get the most recent data point
+                latest_data = rrd_data[-1]
+                
+                # Calculate CPU usage percentage
+                cpu_usage = latest_data.get('cpu', 0.0)
+                if isinstance(cpu_usage, (int, float)):
+                    # RRD data is typically in decimal format (0.0 - 1.0)
+                    cpu_percentage = cpu_usage * 100 if cpu_usage <= 1.0 else cpu_usage
+                    cpu_percentage = round(max(min(cpu_percentage, 100.0), 0.0), 2)
+                    
+                    logging.info("CPU usage for %s via API RRD: %.2f%%", ctid, cpu_percentage)
+                    return cpu_percentage
+                    
+        except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
+            logging.warning(f"Proxmox API RRD failed for container {ctid}, falling back to internal methods: {e}")
+    
+    # Fallback to internal monitoring methods
     def loadavg_method(ctid: str) -> float:
         """Calculate CPU usage using load average from within the container."""
         try:
@@ -366,6 +506,31 @@ def get_memory_usage(ctid: str) -> float:
     Returns:
         The memory usage as a float percentage (0.0 - 100.0).
     """
+    # Try Proxmox API RRD data first if available
+    if PROXMOX_API_AVAILABLE and config.get('DEFAULT', {}).get('use_proxmox_api', True):
+        try:
+            client = get_proxmox_client()
+            rrd_data = client.get_container_rrd_data(ctid, timeframe='hour')
+            
+            if rrd_data and len(rrd_data) > 0:
+                # Get the most recent data point
+                latest_data = rrd_data[-1]
+                
+                # Calculate memory usage percentage
+                mem_used = latest_data.get('mem', 0)
+                mem_max = latest_data.get('maxmem', 1)  # Avoid division by zero
+                
+                if isinstance(mem_used, (int, float)) and isinstance(mem_max, (int, float)) and mem_max > 0:
+                    mem_percentage = (mem_used / mem_max) * 100
+                    mem_percentage = round(max(min(mem_percentage, 100.0), 0.0), 2)
+                    
+                    logging.info("Memory usage for %s via API RRD: %.2f%%", ctid, mem_percentage)
+                    return mem_percentage
+                    
+        except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
+            logging.warning(f"Proxmox API RRD failed for container {ctid}, falling back to internal method: {e}")
+    
+    # Fallback to internal monitoring method
     mem_info = run_command(
         f"pct exec {ctid} -- awk '/MemTotal/ {{t=$2}} /MemAvailable/ {{a=$2}} "
         f"END {{print t, t-a}}' /proc/meminfo"
@@ -396,10 +561,18 @@ def get_container_data(ctid: str) -> Optional[Dict[str, Any]]:
 
     logging.debug("Collecting data for container %s", ctid)
     try:
-        cores = int(run_command(f"pct config {ctid} | grep cores | awk '{{print $2}}'") or 0)
-        memory = int(run_command(f"pct config {ctid} | grep memory | awk '{{print $2}}'") or 0)
-        settings = {"cores": cores, "memory": memory}
-        backup_container_settings(ctid, settings)
+        # Get current configuration (API or command fallback)
+        config_data = get_container_current_config(ctid)
+        if not config_data:
+            logging.error(f"Failed to get configuration for container {ctid}")
+            return None
+        
+        cores = config_data.get('cores', 1)
+        memory = config_data.get('memory', 512)
+        
+        # Backup the configuration
+        backup_container_settings(ctid, config_data)
+        
         return {
             "cpu": get_cpu_usage(ctid),
             "mem": get_memory_usage(ctid),
@@ -515,6 +688,256 @@ def generate_cloned_hostname(base_name: str, clone_number: int) -> str:
     hostname = f"{base_name}-cloned-{clone_number}"
     logging.debug("Generated cloned hostname: %s", hostname)
     return hostname
+
+def scale_container_resources(ctid: str, cores: Optional[int] = None, memory: Optional[int] = None) -> bool:
+    """Scale container resources (CPU cores and/or memory).
+    
+    Args:
+        ctid: The container ID.
+        cores: New number of CPU cores (optional).
+        memory: New memory allocation in MB (optional).
+        
+    Returns:
+        True if scaling was successful, False otherwise.
+    """
+    if not cores and not memory:
+        logging.warning(f"No scaling parameters provided for container {ctid}")
+        return False
+    
+    # Try Proxmox API first if available
+    if PROXMOX_API_AVAILABLE and config.get('DEFAULT', {}).get('use_proxmox_api', True):
+        try:
+            client = get_proxmox_client()
+            update_params = {}
+            
+            if cores is not None:
+                update_params['cores'] = cores
+            if memory is not None:
+                update_params['memory'] = memory
+            
+            success = client.update_container_config(ctid, **update_params)
+            if success:
+                logging.info(f"Scaled container {ctid} via API: {update_params}")
+                return True
+                
+        except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
+            logging.warning(f"Proxmox API scaling failed for container {ctid}, falling back to command: {e}")
+    
+    # Fallback to command execution
+    try:
+        if cores is not None:
+            result = run_command(f"pct set {ctid} -cores {cores}")
+            if not result:
+                logging.error(f"Failed to set cores for container {ctid}")
+                return False
+        
+        if memory is not None:
+            result = run_command(f"pct set {ctid} -memory {memory}")
+            if not result:
+                logging.error(f"Failed to set memory for container {ctid}")
+                return False
+        
+        logging.info(f"Scaled container {ctid} via command: cores={cores}, memory={memory}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Failed to scale container {ctid}: {e}")
+        return False
+
+
+def clone_container_api(source_ctid: str, new_ctid: str, hostname: Optional[str] = None) -> bool:
+    """Clone a container using Proxmox API or command fallback.
+    
+    Args:
+        source_ctid: Source container ID.
+        new_ctid: New container ID.
+        hostname: Hostname for the new container (optional).
+        
+    Returns:
+        True if cloning was successful, False otherwise.
+    """
+    # Try Proxmox API first if available
+    if PROXMOX_API_AVAILABLE and config.get('DEFAULT', {}).get('use_proxmox_api', True):
+        try:
+            client = get_proxmox_client()
+            success = client.clone_container(source_ctid, new_ctid, hostname=hostname)
+            if success:
+                logging.info(f"Cloned container {source_ctid} to {new_ctid} via API")
+                return True
+                
+        except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
+            logging.warning(f"Proxmox API cloning failed, falling back to command: {e}")
+    
+    # Fallback to command execution
+    try:
+        clone_cmd = f"pct clone {source_ctid} {new_ctid}"
+        if hostname:
+            clone_cmd += f" --hostname {hostname}"
+        
+        result = run_command(clone_cmd)
+        if result:
+            logging.info(f"Cloned container {source_ctid} to {new_ctid} via command")
+            return True
+        else:
+            logging.error(f"Failed to clone container {source_ctid} to {new_ctid}")
+            return False
+            
+    except Exception as e:
+        logging.error(f"Failed to clone container {source_ctid}: {e}")
+        return False
+
+
+def start_container_api(ctid: str) -> bool:
+    """Start a container using Proxmox API or command fallback.
+    
+    Args:
+        ctid: Container ID.
+        
+    Returns:
+        True if start was successful, False otherwise.
+    """
+    # Try Proxmox API first if available
+    if PROXMOX_API_AVAILABLE and config.get('DEFAULT', {}).get('use_proxmox_api', True):
+        try:
+            client = get_proxmox_client()
+            success = client.start_container(ctid)
+            if success:
+                logging.info(f"Started container {ctid} via API")
+                return True
+                
+        except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
+            logging.warning(f"Proxmox API start failed for container {ctid}, falling back to command: {e}")
+    
+    # Fallback to command execution
+    try:
+        result = run_command(f"pct start {ctid}")
+        if result is not None:  # Command executed (result can be empty string)
+            logging.info(f"Started container {ctid} via command")
+            return True
+        else:
+            logging.error(f"Failed to start container {ctid}")
+            return False
+            
+    except Exception as e:
+        logging.error(f"Failed to start container {ctid}: {e}")
+        return False
+
+
+def stop_container_api(ctid: str) -> bool:
+    """Stop a container using Proxmox API or command fallback.
+    
+    Args:
+        ctid: Container ID.
+        
+    Returns:
+        True if stop was successful, False otherwise.
+    """
+    # Try Proxmox API first if available
+    if PROXMOX_API_AVAILABLE and config.get('DEFAULT', {}).get('use_proxmox_api', True):
+        try:
+            client = get_proxmox_client()
+            success = client.stop_container(ctid)
+            if success:
+                logging.info(f"Stopped container {ctid} via API")
+                return True
+                
+        except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
+            logging.warning(f"Proxmox API stop failed for container {ctid}, falling back to command: {e}")
+    
+    # Fallback to command execution
+    try:
+        result = run_command(f"pct stop {ctid}")
+        if result is not None:  # Command executed (result can be empty string)
+            logging.info(f"Stopped container {ctid} via command")
+            return True
+        else:
+            logging.error(f"Failed to stop container {ctid}")
+            return False
+            
+    except Exception as e:
+        logging.error(f"Failed to stop container {ctid}: {e}")
+        return False
+
+
+def get_node_resource_usage() -> Dict[str, Any]:
+    """Get node resource usage information.
+    
+    Returns:
+        Dictionary containing node resource usage data.
+    """
+    # Try Proxmox API first if available
+    if PROXMOX_API_AVAILABLE and config.get('DEFAULT', {}).get('use_proxmox_api', True):
+        try:
+            client = get_proxmox_client()
+            node_status = client.get_node_status()
+            
+            # Extract relevant resource information
+            cpu_usage = node_status.get('cpu', 0.0) * 100  # Convert to percentage
+            memory_used = node_status.get('memory', {}).get('used', 0)
+            memory_total = node_status.get('memory', {}).get('total', 1)
+            memory_usage = (memory_used / memory_total) * 100 if memory_total > 0 else 0.0
+            
+            resource_data = {
+                'cpu_usage': round(cpu_usage, 2),
+                'memory_usage': round(memory_usage, 2),
+                'memory_used_mb': memory_used // (1024 * 1024),  # Convert to MB
+                'memory_total_mb': memory_total // (1024 * 1024),  # Convert to MB
+                'cpu_cores': node_status.get('cpuinfo', {}).get('cpus', 1),
+                'uptime': node_status.get('uptime', 0)
+            }
+            
+            logging.debug(f"Retrieved node resource usage via API: {resource_data}")
+            return resource_data
+            
+        except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
+            logging.warning(f"Proxmox API node status failed, falling back to command: {e}")
+    
+    # Fallback to command execution
+    try:
+        # Get CPU cores
+        total_cores = int(run_command("nproc") or 1)
+        
+        # Get memory information
+        memory_output = run_command("free -m | awk '/^Mem:/ {print $2, $3}'")
+        if memory_output:
+            memory_parts = memory_output.split()
+            memory_total_mb = int(memory_parts[0])
+            memory_used_mb = int(memory_parts[1])
+            memory_usage = (memory_used_mb / memory_total_mb) * 100
+        else:
+            memory_total_mb = memory_used_mb = memory_usage = 0
+        
+        # Get load average as CPU usage approximation
+        load_output = run_command("cat /proc/loadavg | awk '{print $1}'")
+        if load_output:
+            load_avg = float(load_output)
+            cpu_usage = min((load_avg / total_cores) * 100, 100.0)
+        else:
+            cpu_usage = 0.0
+        
+        resource_data = {
+            'cpu_usage': round(cpu_usage, 2),
+            'memory_usage': round(memory_usage, 2),
+            'memory_used_mb': memory_used_mb,
+            'memory_total_mb': memory_total_mb,
+            'cpu_cores': total_cores,
+            'uptime': 0  # Not easily available via command
+        }
+        
+        logging.debug(f"Retrieved node resource usage via command: {resource_data}")
+        return resource_data
+        
+    except Exception as e:
+        logging.error(f"Failed to get node resource usage: {e}")
+        return {
+            'cpu_usage': 0.0,
+            'memory_usage': 0.0,
+            'memory_used_mb': 0,
+            'memory_total_mb': 1,
+            'cpu_cores': 1,
+            'uptime': 0
+        }
+
 
 import atexit
 atexit.register(close_ssh_client)

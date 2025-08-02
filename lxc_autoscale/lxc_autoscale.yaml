@@ -9,6 +9,40 @@ DEFAULTS:
   reserve_cpu_percent: 10
   # Amount of memory (in MB) to reserve (e.g., 2048 MB)
   reserve_memory_mb: 2048
+  
+  # Proxmox API Configuration
+  # Whether to use Proxmox API instead of direct command execution
+  use_proxmox_api: true
+  # Proxmox API host (defaults to proxmox_host if not specified)
+  proxmox_api_host: localhost
+  # Proxmox API user (API token authentication is preferred)
+  proxmox_api_user: root@pam
+  # Proxmox API password (not recommended, use API tokens instead)
+  # proxmox_api_password: your_password
+  # Proxmox API token name (preferred authentication method)
+  # proxmox_api_token_name: your_token_name
+  # Proxmox API token value
+  # proxmox_api_token_value: your_token_value
+  # Proxmox node name (defaults to hostname if not specified)
+  # proxmox_node: pve
+  # Whether to verify SSL certificates for API connections
+  proxmox_api_verify_ssl: true
+  # API request timeout in seconds
+  proxmox_api_timeout: 30
+  
+  # SSH Configuration (fallback when API is not available)
+  # Whether to use remote Proxmox host via SSH
+  use_remote_proxmox: false
+  # Proxmox host for SSH connections
+  # proxmox_host: your_proxmox_host
+  # SSH port for remote connections
+  ssh_port: 22
+  # SSH username
+  # ssh_user: root
+  # SSH password (not recommended, use key-based authentication)
+  # ssh_password: your_ssh_password
+  # SSH private key file path
+  # ssh_key_path: /path/to/your/private/key
   # Start hour for off-peak energy-saving mode (e.g., 10 PM)
   off_peak_start: 22
   # End hour for off-peak energy-saving mode (e.g., 6 AM)

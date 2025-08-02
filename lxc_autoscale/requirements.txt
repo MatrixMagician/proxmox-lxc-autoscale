@@ -5,3 +5,5 @@ asyncssh>=2.13.0  # for high-performance async SSH connections
 aiofiles>=23.0.0  # for async file operations
 psutil>=5.9.0  # for system monitoring and performance metrics
 cryptography>=41.0.0  # for encryption and security features
+proxmoxer>=2.0.0  # for Proxmox API interactions
+aiohttp>=3.8.0  # for async HTTP requests

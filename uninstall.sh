@@ -118,6 +118,30 @@ stop_services() {
     fi
 }
 
+# Remove Python dependencies (optional)
+remove_python_dependencies() {
+    log "INFO" "Checking for Python dependencies to remove..."
+    local deps=("proxmoxer" "aiohttp" "asyncssh" "psutil" "cryptography" "aiofiles")
+    local removed=0
+    
+    for dep in "${deps[@]}"; do
+        if python3 -c "import ${dep}" 2>/dev/null; then
+            if pip3 uninstall -y "${dep}" 2>/dev/null; then
+                log "INFO" "${CHECKMARK} Removed Python package: ${dep}"
+                ((removed++))
+            else
+                log "WARN" "Failed to remove Python package: ${dep}"
+            fi
+        fi
+    done
+    
+    if [ $removed -gt 0 ]; then
+        log "INFO" "Removed $removed Python dependencies"
+    else
+        log "INFO" "No LXC AutoScale-specific Python dependencies found to remove"
+    fi
+}
+
 # Remove installation files
 remove_files() {
     # Remove service file
@@ -155,6 +179,25 @@ remove_files() {
     rm -f /tmp/performance_*.log 2>/dev/null || true
 }
 
+# Prompt for Python dependencies removal
+prompt_python_removal() {
+    if [ "${1:-}" = "--remove-deps" ]; then
+        return 0  # Auto-confirm if flag is provided
+    fi
+    
+    printf "\n${YELLOW}Do you want to remove Python dependencies (proxmoxer, aiohttp, etc.)? [y/N]: ${RESET}"
+    read -r response
+    case $response in
+        [yY][eE][sS]|[yY])
+            return 0
+            ;;
+        *)
+            log "INFO" "Keeping Python dependencies (they may be used by other applications)"
+            return 1
+            ;;
+    esac
+}
+
 # Main execution
 main() {
     check_root
@@ -163,11 +206,17 @@ main() {
     backup_config
     stop_services
     remove_files
+    
+    # Optionally remove Python dependencies
+    if prompt_python_removal "$@"; then
+        remove_python_dependencies
+    fi
+    
     systemctl daemon-reload  # Reload systemd after service removal
 
     log "INFO" "LXC AutoScale v3.0 Performance Edition uninstallation complete!"
-    log "INFO" "${THANKS} ${BOLD}Thank you for using the Enhanced LXC AutoScale!${RESET}"
-    log "INFO" "All performance optimization files, caches, and monitoring data have been removed."
+    log "INFO" "${THANKS} ${BOLD}Thank you for using the Enhanced LXC AutoScale with Proxmox API!${RESET}"
+    log "INFO" "All performance optimization files, Proxmox API components, caches, and monitoring data have been removed."
     log "INFO" "${URL} ${BOLD}Repository: https://github.com/MatrixMagician/proxmox-lxc-autoscale${RESET}"
 }
 

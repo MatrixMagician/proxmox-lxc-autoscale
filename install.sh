@@ -42,12 +42,13 @@ header() {
     echo ""
     echo "${GREEN}${BOLD}⚡ New in v3.0 - Performance Edition:${RESET}"
     echo "• 🚀 60-80% Performance Improvement - Async operations & concurrency"
+    echo "• 🌐 Proxmox API Integration - Direct API calls replace command execution"
     echo "• 🧠 Advanced Caching System - LRU cache with smart invalidation"
     echo "• 🔧 Circuit Breaker Pattern - Enhanced reliability and fault tolerance"
     echo "• 🧮 Memory Optimization - Leak detection and automatic optimization"
     echo "• 📊 Real-time Monitoring - Performance metrics and trend analysis"
     echo "• 🔄 Error Recovery - Multiple retry strategies with graceful degradation"
-    echo "• 🔐 Security Enhancements - Input validation, encryption, and hardening"
+    echo "• 🔐 Security Enhancements - API tokens, input validation, encryption"
     echo "• ⚡ Concurrent Processing - Support for 10x more containers"
     echo "• 🌐 Connection Pooling - Optimized SSH connection management"
     echo "• 📦 Batch Operations - Efficient resource allocation algorithms"
@@ -161,13 +162,13 @@ install_lxc_autoscale() {
     apt update
     apt install git python3-flask python3-requests python3-paramiko python3-yaml python3-pip python3-dev -y
     
-    # Install additional Python packages for performance optimizations
-    log "INFO" "Installing performance optimization dependencies..."
-    pip3 install asyncssh>=2.13.0 psutil>=5.9.0 cryptography>=41.0.0 aiofiles>=23.0.0
+    # Install additional Python packages for performance optimizations and Proxmox API
+    log "INFO" "Installing performance optimization and Proxmox API dependencies..."
+    pip3 install asyncssh>=2.13.0 psutil>=5.9.0 cryptography>=41.0.0 aiofiles>=23.0.0 proxmoxer>=2.0.0 aiohttp>=3.8.0
     
-    # Verify Python dependencies (including new performance optimization modules)
+    # Verify Python dependencies (including new performance optimization and Proxmox API modules)
     log "INFO" "Verifying Python dependencies..."
-    python3 -c "import yaml, requests, paramiko, asyncssh, psutil, cryptography" 2>/dev/null || {
+    python3 -c "import yaml, requests, paramiko, asyncssh, psutil, cryptography, proxmoxer, aiohttp" 2>/dev/null || {
         log "ERROR" "Failed to verify Python dependencies. Installation may fail."
         exit 1
     }
@@ -210,6 +211,10 @@ install_lxc_autoscale() {
     curl -sSL -o /usr/local/bin/lxc_autoscale/logging_setup.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/logging_setup.py
     curl -sSL -o /usr/local/bin/lxc_autoscale/structured_logger.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/structured_logger.py
     curl -sSL -o /usr/local/bin/lxc_autoscale/lock_manager.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/lock_manager.py
+    
+    log "INFO" "Downloading Proxmox API client modules..."
+    curl -sSL -o /usr/local/bin/lxc_autoscale/proxmox_api_client.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/proxmox_api_client.py
+    curl -sSL -o /usr/local/bin/lxc_autoscale/async_lxc_utils.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/async_lxc_utils.py
     
     log "INFO" "Downloading performance optimization modules..."
     curl -sSL -o /usr/local/bin/lxc_autoscale/async_command_executor.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/async_command_executor.py
@@ -256,6 +261,10 @@ install_lxc_autoscale() {
         "/usr/local/bin/lxc_autoscale/logging_setup.py"
         "/usr/local/bin/lxc_autoscale/structured_logger.py"
         "/usr/local/bin/lxc_autoscale/lock_manager.py"
+        
+        # Proxmox API client modules
+        "/usr/local/bin/lxc_autoscale/proxmox_api_client.py"
+        "/usr/local/bin/lxc_autoscale/async_lxc_utils.py"
         
         # Performance optimization modules
         "/usr/local/bin/lxc_autoscale/async_command_executor.py"
@@ -320,6 +329,10 @@ try:
     import scaling_orchestrator
     import structured_logger
     
+    # Proxmox API modules
+    import proxmox_api_client
+    import async_lxc_utils
+    
     # Performance optimization modules
     import async_command_executor
     import performance_cache
@@ -335,6 +348,7 @@ try:
     import performance_monitor
     
     print('✅ All modules imported successfully!')
+    print('✅ Proxmox API integration ready!')
     print('✅ Performance optimizations ready!')
     print('✅ Enhanced reliability features available!')
     print('✅ Advanced monitoring capabilities loaded!')
@@ -379,14 +393,15 @@ echo "=============================================="
 echo ""
 echo "${BLUE}${BOLD}🆕 What's New in v3.0 - Performance Edition:${RESET}"
 echo "• ${GREEN}60-80% Performance Improvement${RESET} through async operations"
+echo "• ${GREEN}Proxmox API Integration${RESET} with direct API calls and authentication"
 echo "• ${GREEN}Advanced Caching System${RESET} with LRU and smart invalidation"
 echo "• ${GREEN}Circuit Breaker Pattern${RESET} for enhanced reliability"
 echo "• ${GREEN}Memory Optimization${RESET} with leak detection and profiling"
 echo "• ${GREEN}Real-time Performance Monitoring${RESET} with metrics and alerts"
 echo "• ${GREEN}Comprehensive Error Recovery${RESET} with multiple retry strategies"
-echo "• ${GREEN}Security Enhancements${RESET} with input validation and encryption"
+echo "• ${GREEN}Security Enhancements${RESET} with API tokens and encryption"
 echo "• ${GREEN}Concurrent Container Processing${RESET} supporting 10x more containers"
-echo "• ${GREEN}Connection Pooling${RESET} for optimized SSH performance"
+echo "• ${GREEN}Connection Pooling${RESET} for optimized API and SSH performance"
 echo "• ${GREEN}Batch Operations${RESET} for efficient resource management"
 echo ""
 echo "${YELLOW}${BOLD}⚡ Performance Features Available:${RESET}"
