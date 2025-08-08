@@ -3,7 +3,7 @@ import sys  # Used to exit the script
 import os  # Provides a way of using operating system dependent functionality
 import logging  # Used for logging errors and other messages
 from contextlib import contextmanager  # Allows the creation of a context manager
-from config import get_config_value  # Import configuration utility
+from config_manager import get_config_value  # Import configuration utility
 
 # Retrieve the lock file path from the configuration
 LOCK_FILE = get_config_value('DEFAULT', 'lock_file', '/var/lock/lxc_autoscale.lock')

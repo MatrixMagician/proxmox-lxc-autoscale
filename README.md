@@ -81,7 +81,7 @@ bash install.sh
 
 The installer will automatically:
 - Install all performance optimization dependencies
-- Download and configure all 28+ optimized modules
+- Download and configure all 22 core optimized modules
 - Set up monitoring and caching systems
 - Validate all components for enterprise-grade operation
 
@@ -191,9 +191,45 @@ For detailed instructions on how to adjust the settings, please refer to the **[
 
 ## 🏗️ Technical Implementation
 
-### Core Performance Optimizations
+### Current Module Architecture (22 Core Modules)
 
-#### 🚀 **Async Command Executor**
+#### 🚀 **Core Execution Layer**
+- **main_async.py** - Main async orchestrator entry point
+- **async_command_executor.py** - High-performance SSH connection pooling
+- **async_lxc_utils.py** - Async container operations wrapper
+- **async_scaling_orchestrator.py** - Concurrent scaling coordination
+
+#### 🧠 **Resource Management**
+- **optimized_resource_manager.py** - Priority-based resource allocation
+- **metrics_calculator.py** - Advanced scaling metrics computation
+- **horizontal_scaler.py** - Container cloning and horizontal scaling
+- **lxc_utils.py** - Core container utility functions
+
+#### 🛡️ **Reliability & Recovery**
+- **circuit_breaker.py** - Automatic failure detection and recovery
+- **advanced_error_recovery.py** - Multi-strategy retry mechanisms
+- **error_handler.py** - Centralized error management
+- **security_validator.py** - Input validation and security
+
+#### 🔧 **Configuration & Infrastructure**
+- **config_manager.py** - Enhanced configuration management
+- **constants.py** - System constants and defaults
+- **lock_manager.py** - Process synchronization
+- **logging_setup.py** - Basic logging configuration
+- **structured_logger.py** - Advanced JSON logging
+
+#### 📊 **Performance & Monitoring**
+- **performance_monitor.py** - Real-time performance tracking
+- **performance_cache.py** - LRU caching with smart invalidation
+- **memory_optimizer.py** - Memory leak detection and optimization
+
+#### 🔔 **Integration & Communication**
+- **notification.py** - Multi-channel notification system
+- **proxmox_api_client.py** - Direct Proxmox API integration
+
+### Performance Optimizations
+
+#### 🚀 **Async Architecture Benefits**
 - **Connection Pooling**: Persistent SSH connections reduce overhead by 70%
 - **Batch Processing**: Process multiple containers simultaneously
 - **Non-blocking Operations**: Async/await patterns for maximum concurrency
@@ -322,11 +358,15 @@ journalctl -u lxc_autoscale.service | grep "API"
 # Validate all modules
 cd /usr/local/bin/lxc_autoscale
 python3 -c "
+import main_async
 import async_command_executor
-import performance_cache
+import async_scaling_orchestrator
 import optimized_resource_manager
+import performance_cache
 import circuit_breaker
-print('All performance modules loaded successfully')
+import memory_optimizer
+import performance_monitor
+print('All core modules loaded successfully')
 "
 ```
 
@@ -370,7 +410,7 @@ LXC AutoScale v3.0 Performance Edition represents a complete transformation of t
 - **🔐 Enhanced Security** with validation, encryption, and hardening
 
 ### Production Ready
-- **28+ Optimized Modules** for enterprise-grade performance
+- **22 Core Optimized Modules** for enterprise-grade performance
 - **Comprehensive Testing** with validation frameworks
 - **Zero-Downtime Migration** from previous versions
 - **Extensive Documentation** and troubleshooting guides

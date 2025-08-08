@@ -457,7 +457,7 @@ class AsyncLXCUtils:
                     containers.update(result)
                     
                     # Apply tier settings if available
-                    from config import LXC_TIER_ASSOCIATIONS
+                    from config_manager import LXC_TIER_ASSOCIATIONS
                     if ctid in LXC_TIER_ASSOCIATIONS:
                         tier_config = LXC_TIER_ASSOCIATIONS[ctid]
                         containers[ctid].update(tier_config)

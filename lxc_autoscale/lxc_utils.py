@@ -25,7 +25,7 @@ except ImportError:
     logging.warning("Proxmox API client not available. Falling back to command execution.")
     PROXMOX_API_AVAILABLE = False
 
-from config import (BACKUP_DIR,  IGNORE_LXC, LOG_FILE,
+from config_manager import (BACKUP_DIR,  IGNORE_LXC, LOG_FILE,
                     LXC_TIER_ASSOCIATIONS, PROXMOX_HOSTNAME, config, get_config_value)
 
 lock = Lock()
@@ -33,106 +33,6 @@ lock = Lock()
 # Global variable to hold the SSH client
 ssh_client: Optional[paramiko.SSHClient] = None
 
-def get_ssh_client() -> Optional['paramiko.SSHClient']:
-    """Get or create SSH client with better error handling."""
-    global ssh_client
-    if ssh_client is None:
-        logging.debug("Creating a new SSH connection...")
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        try:
-            ssh.connect(
-                hostname=config.get('DEFAULT', {}).get('proxmox_host'),
-                port=config.get('DEFAULT', {}).get('ssh_port', 22),
-                username=config.get('DEFAULT', {}).get('ssh_user'),
-                password=config.get('DEFAULT', {}).get('ssh_password'),
-                key_filename=config.get('DEFAULT', {}).get('ssh_key_path'),
-                timeout=10
-            )
-            logging.info("SSH connection established successfully.")
-            ssh_client = ssh
-        except paramiko.SSHException as e:
-            logging.error("SSH connection failed: %s", str(e))
-            return None
-        except Exception as e:
-            logging.error(f"Failed to create SSH client: {e}")
-            return None
-    return ssh_client
-
-def close_ssh_client() -> None:
-    """Close the SSH client connection."""
-    global ssh_client
-    if ssh_client:
-        logging.debug("Closing SSH connection...")
-        ssh_client.close()
-        logging.info("SSH connection closed.")
-        ssh_client = None
-
-def run_command(cmd: str, timeout: int = 30) -> Optional[str]:
-    """Execute a command locally or remotely based on configuration.
-
-    Args:
-        cmd: The command to execute.
-        timeout: Timeout in seconds for the command execution.
-
-    Returns:
-        The command output or None if the command failed.
-    """
-    use_remote_proxmox = config.get('DEFAULT', {}).get('use_remote_proxmox', False)
-    logging.debug("Inside run_command: use_remote_proxmox = %s", use_remote_proxmox)
-    logging.debug(f"Running command: {cmd} (timeout: {timeout}s)")
-    return (run_remote_command if use_remote_proxmox else run_local_command)(cmd, timeout)
-
-
-def run_local_command(cmd: str, timeout: int = 30) -> Optional[str]:
-    """Execute a command locally with timeout.
-
-    Args:
-        cmd: The command to execute.
-        timeout: Timeout in seconds for the command execution.
-
-    Returns:
-        The command output or None if the command failed.
-    """
-    try:
-        result = subprocess.check_output(
-            cmd, shell=True, timeout=timeout, stderr=subprocess.STDOUT,
-        ).decode('utf-8').strip()
-        logging.debug(f"Command '{cmd}' executed successfully. Output: {result}")
-        return result
-    except subprocess.TimeoutExpired:
-        logging.error("Command '%s' timed out after %d seconds", cmd, timeout)
-    except subprocess.CalledProcessError as e:
-        logging.error("Command '%s' failed: %s", cmd, e.output.decode('utf-8'))
-    except Exception as e:  # pylint: disable=broad-except
-        logging.error("Unexpected error executing '%s': %s", cmd, str(e))
-    return None
-
-
-def run_remote_command(cmd: str, timeout: int = 30) -> Optional[str]:
-    """Execute a command on a remote Proxmox host via SSH.
-
-    Args:
-        cmd: The command to execute.
-        timeout: Timeout in seconds for the command execution.
-
-    Returns:
-        The command output or None if the command failed.
-    """
-    logging.debug("Running remote command: %s", cmd)
-    ssh = get_ssh_client()
-    if not ssh:
-        return None
-    try:
-        _, stdout, _ = ssh.exec_command(cmd, timeout=timeout)
-        output = stdout.read().decode('utf-8').strip()
-        logging.debug(f"Remote command '{cmd}' executed successfully: {output}")
-        return output
-    except paramiko.SSHException as e:
-        logging.error("SSH execution failed: %s", str(e))
-    except Exception as e:  # pylint: disable=broad-except
-        logging.error("Unexpected SSH error executing '%s': %s", cmd, str(e))
-    return None
 
 
 def get_containers() -> List[str]:

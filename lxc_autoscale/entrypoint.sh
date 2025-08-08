@@ -125,5 +125,5 @@ if [[ "${ASYNC_MODE}" == "true" ]]; then
   fi
 else
   echo "Starting in standard synchronous mode..."
-  python3 lxc_autoscale.py --config "${CONFIG_PATH}"
+  python3 main_async.py --config "${CONFIG_PATH}"
 fi

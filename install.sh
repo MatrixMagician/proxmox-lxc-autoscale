@@ -322,11 +322,8 @@ try:
     import config_manager
     import error_handler
     import security_validator
-    import command_executor
     import metrics_calculator
-    import resource_scaler
     import horizontal_scaler
-    import scaling_orchestrator
     import structured_logger
     
     # Proxmox API modules

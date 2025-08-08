@@ -3,7 +3,7 @@ import requests  # For sending HTTP requests (used by Gotify and Uptime Kuma)
 import smtplib  # For sending emails
 from email.mime.text import MIMEText  # For constructing email messages
 from abc import ABC, abstractmethod  # Abstract base classes for notification interfaces
-from config import DEFAULTS  # Configuration values
+from config_manager import DEFAULTS  # Configuration values
 
 # Abstract base class for notification proxies
 class NotificationProxy(ABC):
