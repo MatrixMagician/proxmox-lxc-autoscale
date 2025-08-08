@@ -1,9 +1,20 @@
-requests
-PyYAML  # for 'yaml' module
-paramiko>=2.11.0
-asyncssh>=2.13.0  # for high-performance async SSH connections
-aiofiles>=23.0.0  # for async file operations
-psutil>=5.9.0  # for system monitoring and performance metrics
-cryptography>=41.0.0  # for encryption and security features
-proxmoxer>=2.0.0  # for Proxmox API interactions
-aiohttp>=3.8.0  # for async HTTP requests
+# Core web framework and HTTP packages
+flask>=2.3.0  # Web UI framework
+requests>=2.31.0  # HTTP requests
+flask-socketio>=5.3.0  # WebSocket support for UI
+
+# Configuration and SSH packages  
+PyYAML>=6.0  # YAML configuration parsing
+paramiko>=2.11.0  # SSH connections (synchronous)
+asyncssh>=2.13.0  # High-performance async SSH connections
+
+# System monitoring and async I/O
+psutil>=5.9.0  # System monitoring and performance metrics
+aiofiles>=23.0.0  # Async file operations
+
+# Security and encryption
+cryptography>=41.0.0  # Encryption and security features
+
+# Proxmox API integration
+proxmoxer>=2.0.0  # Proxmox API client
+aiohttp>=3.8.0  # Async HTTP requests

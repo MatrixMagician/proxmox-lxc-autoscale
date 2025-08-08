@@ -157,23 +157,52 @@ install_lxc_autoscale() {
     # Reload systemd
     systemctl daemon-reload
 
-    # Install needed packages (including new dependencies for performance optimizations)
+    # Install needed packages (only essential build dependencies)
     log "INFO" "Installing required system packages..."
     apt update
-    apt install git python3-flask python3-requests python3-paramiko python3-yaml python3-pip python3-dev python3-venv -y
+    apt install git python3-pip python3-dev python3-venv build-essential libffi-dev libssl-dev -y
     
     # Create virtual environment for Python dependencies
     log "INFO" "Creating Python virtual environment..."
     python3 -m venv /opt/lxc_autoscale_venv
     
-    # Install additional Python packages for performance optimizations and Proxmox API
-    log "INFO" "Installing performance optimization and Proxmox API dependencies..."
-    /opt/lxc_autoscale_venv/bin/pip install asyncssh>=2.13.0 psutil>=5.9.0 cryptography>=41.0.0 aiofiles>=23.0.0 proxmoxer>=2.0.0 aiohttp>=3.8.0
+    # Install all Python packages in virtual environment
+    log "INFO" "Installing Python dependencies in virtual environment..."
+    /opt/lxc_autoscale_venv/bin/pip install --upgrade pip
+    /opt/lxc_autoscale_venv/bin/pip install \
+        flask>=2.3.0 \
+        requests>=2.31.0 \
+        paramiko>=3.2.0 \
+        pyyaml>=6.0 \
+        asyncssh>=2.13.0 \
+        psutil>=5.9.0 \
+        cryptography>=41.0.0 \
+        aiofiles>=23.0.0 \
+        proxmoxer>=2.0.0 \
+        aiohttp>=3.8.0
     
-    # Verify Python dependencies (including new performance optimization and Proxmox API modules)
+    # Verify Python dependencies
     log "INFO" "Verifying Python dependencies..."
-    /opt/lxc_autoscale_venv/bin/python -c "import yaml, requests, paramiko, asyncssh, psutil, cryptography, proxmoxer, aiohttp" 2>/dev/null || {
-        log "ERROR" "Failed to verify Python dependencies. Installation may fail."
+    /opt/lxc_autoscale_venv/bin/python -c "
+import sys
+missing_packages = []
+required_packages = ['yaml', 'requests', 'paramiko', 'flask', 'asyncssh', 'psutil', 'cryptography', 'aiofiles', 'proxmoxer', 'aiohttp']
+
+for package in required_packages:
+    try:
+        __import__(package)
+        print(f'✓ {package}')
+    except ImportError as e:
+        missing_packages.append(package)
+        print(f'✗ {package}: {e}')
+
+if missing_packages:
+    print(f'Missing packages: {missing_packages}')
+    sys.exit(1)
+else:
+    print('All dependencies verified successfully!')
+" || {
+        log "ERROR" "Failed to verify Python dependencies. Check the error details above."
         exit 1
     }
     

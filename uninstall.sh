@@ -125,30 +125,31 @@ remove_python_dependencies() {
     
     # Check if virtual environment exists
     if [ -d "/opt/lxc_autoscale_venv" ]; then
-        log "INFO" "${CHECKMARK} Removing virtual environment with all dependencies..."
-        # The virtual environment directory will be removed with INSTALL_DIRS
+        log "INFO" "${CHECKMARK} Virtual environment found - all dependencies are contained within it."
+        log "INFO" "Virtual environment will be removed automatically with installation directories."
         return 0
     fi
     
-    # Fallback: check for system-wide packages (for legacy installations)
-    local deps=("proxmoxer" "aiohttp" "asyncssh" "psutil" "cryptography" "aiofiles")
+    # Fallback: check for legacy system-wide packages (from older installations)
+    log "INFO" "Checking for legacy system-wide Python packages..."
+    local legacy_deps=("proxmoxer" "aiohttp" "asyncssh" "psutil" "cryptography" "aiofiles")
     local removed=0
     
-    for dep in "${deps[@]}"; do
+    for dep in "${legacy_deps[@]}"; do
         if python3 -c "import ${dep}" 2>/dev/null; then
             if pip3 uninstall -y "${dep}" 2>/dev/null; then
-                log "INFO" "${CHECKMARK} Removed Python package: ${dep}"
+                log "INFO" "${CHECKMARK} Removed legacy Python package: ${dep}"
                 ((removed++))
             else
-                log "WARN" "Failed to remove Python package: ${dep}"
+                log "WARN" "Failed to remove legacy Python package: ${dep}"
             fi
         fi
     done
     
     if [ $removed -gt 0 ]; then
-        log "INFO" "Removed $removed Python dependencies"
+        log "INFO" "Removed $removed legacy Python dependencies"
     else
-        log "INFO" "No LXC AutoScale-specific Python dependencies found to remove"
+        log "INFO" "No legacy system-wide Python dependencies found"
     fi
 }
 
@@ -195,14 +196,14 @@ prompt_python_removal() {
         return 0  # Auto-confirm if flag is provided
     fi
     
-    printf "\n${YELLOW}Do you want to remove Python virtual environment and dependencies? [y/N]: ${RESET}"
+    printf "\n${YELLOW}Do you want to remove the Python virtual environment and all dependencies? [y/N]: ${RESET}"
     read -r response
     case $response in
         [yY][eE][sS]|[yY])
             return 0
             ;;
         *)
-            log "INFO" "Keeping virtual environment and Python dependencies"
+            log "INFO" "Keeping virtual environment and all Python dependencies intact"
             return 1
             ;;
     esac
@@ -226,7 +227,7 @@ main() {
 
     log "INFO" "LXC AutoScale v3.0 Performance Edition uninstallation complete!"
     log "INFO" "${THANKS} ${BOLD}Thank you for using the Enhanced LXC AutoScale with Proxmox API!${RESET}"
-    log "INFO" "All performance optimization files, Proxmox API components, caches, and monitoring data have been removed."
+    log "INFO" "All performance optimization files, Proxmox API components, virtual environment, caches, and monitoring data have been removed."
     log "INFO" "${URL} ${BOLD}Repository: https://github.com/MatrixMagician/proxmox-lxc-autoscale${RESET}"
 }
 
