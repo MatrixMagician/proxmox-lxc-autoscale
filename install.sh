@@ -160,15 +160,19 @@ install_lxc_autoscale() {
     # Install needed packages (including new dependencies for performance optimizations)
     log "INFO" "Installing required system packages..."
     apt update
-    apt install git python3-flask python3-requests python3-paramiko python3-yaml python3-pip python3-dev -y
+    apt install git python3-flask python3-requests python3-paramiko python3-yaml python3-pip python3-dev python3-venv -y
+    
+    # Create virtual environment for Python dependencies
+    log "INFO" "Creating Python virtual environment..."
+    python3 -m venv /opt/lxc_autoscale_venv
     
     # Install additional Python packages for performance optimizations and Proxmox API
     log "INFO" "Installing performance optimization and Proxmox API dependencies..."
-    pip3 install asyncssh>=2.13.0 psutil>=5.9.0 cryptography>=41.0.0 aiofiles>=23.0.0 proxmoxer>=2.0.0 aiohttp>=3.8.0
+    /opt/lxc_autoscale_venv/bin/pip install asyncssh>=2.13.0 psutil>=5.9.0 cryptography>=41.0.0 aiofiles>=23.0.0 proxmoxer>=2.0.0 aiohttp>=3.8.0
     
     # Verify Python dependencies (including new performance optimization and Proxmox API modules)
     log "INFO" "Verifying Python dependencies..."
-    python3 -c "import yaml, requests, paramiko, asyncssh, psutil, cryptography, proxmoxer, aiohttp" 2>/dev/null || {
+    /opt/lxc_autoscale_venv/bin/python -c "import yaml, requests, paramiko, asyncssh, psutil, cryptography, proxmoxer, aiohttp" 2>/dev/null || {
         log "ERROR" "Failed to verify Python dependencies. Installation may fail."
         exit 1
     }
@@ -315,7 +319,7 @@ install_lxc_autoscale() {
     # Validate the Python modules can be imported successfully
     log "INFO" "Validating refactored and performance optimization module imports..."
     cd /usr/local/bin/lxc_autoscale
-    python3 -c "
+    /opt/lxc_autoscale_venv/bin/python -c "
 try:
     # Core modules
     import constants
@@ -413,7 +417,7 @@ echo "1. Edit your configuration: ${BLUE}/etc/lxc_autoscale/lxc_autoscale.yaml${
 echo "2. Check service status: ${BLUE}systemctl status lxc_autoscale.service${RESET}"
 echo "3. View logs: ${BLUE}journalctl -u lxc_autoscale.service -f${RESET}"
 echo "4. View structured logs: ${BLUE}tail -f /var/log/lxc_autoscale.log | jq${RESET}"
-echo "5. ${GREEN}NEW${RESET}: Use async mode for better performance: ${BLUE}python3 /usr/local/bin/lxc_autoscale/main_async.py${RESET}"
+echo "5. ${GREEN}NEW${RESET}: Use async mode for better performance: ${BLUE}/opt/lxc_autoscale_venv/bin/python /usr/local/bin/lxc_autoscale/main_async.py${RESET}"
 echo ""
 echo "${GREEN}${BOLD}🎯 Expected Performance Improvements:${RESET}"
 echo "• 60-80% faster processing times"

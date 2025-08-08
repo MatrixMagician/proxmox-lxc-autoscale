@@ -16,6 +16,7 @@ readonly INSTALL_DIRS=(
     "/var/lib/lxc_autoscale"
     "/var/cache/lxc_autoscale"
     "/tmp/lxc_autoscale_cache"
+    "/opt/lxc_autoscale_venv"
 )
 readonly LOG_FILES=(
     "/var/log/lxc_autoscale.log"
@@ -121,6 +122,15 @@ stop_services() {
 # Remove Python dependencies (optional)
 remove_python_dependencies() {
     log "INFO" "Checking for Python dependencies to remove..."
+    
+    # Check if virtual environment exists
+    if [ -d "/opt/lxc_autoscale_venv" ]; then
+        log "INFO" "${CHECKMARK} Removing virtual environment with all dependencies..."
+        # The virtual environment directory will be removed with INSTALL_DIRS
+        return 0
+    fi
+    
+    # Fallback: check for system-wide packages (for legacy installations)
     local deps=("proxmoxer" "aiohttp" "asyncssh" "psutil" "cryptography" "aiofiles")
     local removed=0
     
@@ -185,14 +195,14 @@ prompt_python_removal() {
         return 0  # Auto-confirm if flag is provided
     fi
     
-    printf "\n${YELLOW}Do you want to remove Python dependencies (proxmoxer, aiohttp, etc.)? [y/N]: ${RESET}"
+    printf "\n${YELLOW}Do you want to remove Python virtual environment and dependencies? [y/N]: ${RESET}"
     read -r response
     case $response in
         [yY][eE][sS]|[yY])
             return 0
             ;;
         *)
-            log "INFO" "Keeping Python dependencies (they may be used by other applications)"
+            log "INFO" "Keeping virtual environment and Python dependencies"
             return 1
             ;;
     esac
