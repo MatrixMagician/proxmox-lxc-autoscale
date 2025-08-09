@@ -185,9 +185,9 @@ remove_files() {
         fi
     done
     
-    # Remove any performance monitoring temporary files
+    # Remove any temporary files
     rm -f /tmp/lxc_autoscale_*.tmp 2>/dev/null || true
-    rm -f /tmp/performance_*.log 2>/dev/null || true
+    rm -f /tmp/memory_optimizer_*.log 2>/dev/null || true
 }
 
 # Prompt for Python dependencies removal

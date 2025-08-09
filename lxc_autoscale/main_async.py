@@ -165,7 +165,7 @@ class AsyncLXCAutoscaler:
             logging.info(f"Continuous autoscaling stopped after {cycle_count} cycles")
     
     async def _log_performance_statistics(self) -> None:
-        """Log performance statistics for monitoring."""
+        """Log performance statistics for analysis."""
         try:
             stats = self.orchestrator.get_performance_statistics()
             logging.info(f"Performance statistics: {stats}")

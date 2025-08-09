@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # LXC AutoScale v3.0 Performance Edition Docker Entrypoint
-# Supports both sync and async modes, Proxmox API integration, and performance monitoring
+# Supports both sync and async modes, Proxmox API integration, and memory optimization
 
 # Check if a user-defined configuration file is provided
 if [[ -z "${USER_CONF_PATH}" ]]; then

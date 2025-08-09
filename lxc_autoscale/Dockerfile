@@ -7,10 +7,9 @@
 # 
 # - Proxmox API integration for efficient container management
 # - Asynchronous operations for 60-80% performance improvement
-# - Advanced caching and performance monitoring
+# - Advanced caching and memory optimization
 # - Circuit breaker patterns for reliability
 # - Memory optimization and leak detection
-# - Real-time performance metrics and trend analysis
 # 
 # Environment Variables:
 # ----------------------
@@ -45,7 +44,7 @@ WORKDIR /app
 # Copy application files
 COPY . /app
 
-# Install required packages including performance monitoring tools
+# Install required packages including system monitoring tools
 RUN apt-get update && apt-get install -y \
     curl \
     procps \
@@ -67,8 +66,8 @@ RUN pip install --upgrade pip setuptools wheel && \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Create required directories for caching and performance monitoring
-RUN mkdir -p /var/cache/lxc_autoscale /var/lib/lxc_autoscale/performance \
+# Create required directories for caching and memory optimization
+RUN mkdir -p /var/cache/lxc_autoscale /var/lib/lxc_autoscale/memory \
     && chown -R 1000:1000 /var/cache/lxc_autoscale /var/lib/lxc_autoscale
 
 # Add health check for container monitoring

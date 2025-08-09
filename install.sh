@@ -45,8 +45,7 @@ header() {
     echo "• 🌐 Proxmox API Integration - Direct API calls replace command execution"
     echo "• 🧠 Advanced Caching System - LRU cache with smart invalidation"
     echo "• 🔧 Circuit Breaker Pattern - Enhanced reliability and fault tolerance"
-    echo "• 🧮 Memory Optimization - Leak detection and automatic optimization"
-    echo "• 📊 Real-time Monitoring - Performance metrics and trend analysis"
+    echo "• 🧮 Memory Optimization - Leak detection and automatic cleanup"
     echo "• 🔄 Error Recovery - Multiple retry strategies with graceful degradation"
     echo "• 🔐 Security Enhancements - API tokens, input validation, encryption"
     echo "• ⚡ Concurrent Processing - Support for 10x more containers"
@@ -259,9 +258,8 @@ else:
     curl -sSL -o /usr/local/bin/lxc_autoscale/circuit_breaker.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/circuit_breaker.py
     curl -sSL -o /usr/local/bin/lxc_autoscale/advanced_error_recovery.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/advanced_error_recovery.py
     
-    log "INFO" "Downloading monitoring and optimization modules..."
+    log "INFO" "Downloading memory optimization modules..."
     curl -sSL -o /usr/local/bin/lxc_autoscale/memory_optimizer.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/memory_optimizer.py
-    curl -sSL -o /usr/local/bin/lxc_autoscale/performance_monitor.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/performance_monitor.py
     
     log "INFO" "Downloading enhanced async main entry point..."
     curl -sSL -o /usr/local/bin/lxc_autoscale/main_async.py https://raw.githubusercontent.com/MatrixMagician/proxmox-lxc-autoscale/main/lxc_autoscale/main_async.py
@@ -309,9 +307,8 @@ else:
         "/usr/local/bin/lxc_autoscale/circuit_breaker.py"
         "/usr/local/bin/lxc_autoscale/advanced_error_recovery.py"
         
-        # Monitoring and optimization modules
+        # Memory optimization modules
         "/usr/local/bin/lxc_autoscale/memory_optimizer.py"
-        "/usr/local/bin/lxc_autoscale/performance_monitor.py"
         
         # Enhanced main entry point
         "/usr/local/bin/lxc_autoscale/main_async.py"
@@ -373,15 +370,14 @@ try:
     import circuit_breaker
     import advanced_error_recovery
     
-    # Monitoring modules
+    # Memory optimization modules
     import memory_optimizer
-    import performance_monitor
     
     print('✅ All modules imported successfully!')
     print('✅ Proxmox API integration ready!')
     print('✅ Performance optimizations ready!')
     print('✅ Enhanced reliability features available!')
-    print('✅ Advanced monitoring capabilities loaded!')
+    print('✅ Memory optimization capabilities loaded!')
 except ImportError as e:
     print(f'❌ Module import failed: {e}')
     exit(1)
@@ -427,7 +423,6 @@ echo "• ${GREEN}Proxmox API Integration${RESET} with direct API calls and auth
 echo "• ${GREEN}Advanced Caching System${RESET} with LRU and smart invalidation"
 echo "• ${GREEN}Circuit Breaker Pattern${RESET} for enhanced reliability"
 echo "• ${GREEN}Memory Optimization${RESET} with leak detection and profiling"
-echo "• ${GREEN}Real-time Performance Monitoring${RESET} with metrics and alerts"
 echo "• ${GREEN}Comprehensive Error Recovery${RESET} with multiple retry strategies"
 echo "• ${GREEN}Security Enhancements${RESET} with API tokens and encryption"
 echo "• ${GREEN}Concurrent Container Processing${RESET} supporting 10x more containers"
@@ -438,8 +433,7 @@ echo "${YELLOW}${BOLD}⚡ Performance Features Available:${RESET}"
 echo "• Async Scaling Orchestrator for maximum concurrency"
 echo "• Optimized Resource Manager with priority-based allocation"
 echo "• Advanced Error Recovery with graceful degradation"
-echo "• Memory Profiler and automatic optimization"
-echo "• Performance monitoring with trend analysis"
+echo "• Memory optimization with leak detection and profiling"
 echo ""
 echo "${YELLOW}${BOLD}📍 Next Steps:${RESET}"
 echo "1. Edit your configuration: ${BLUE}/etc/lxc_autoscale/lxc_autoscale.yaml${RESET}"

@@ -7,7 +7,7 @@ flask-socketio>=5.3.0  # WebSocket support for UI
 PyYAML>=6.0  # YAML configuration parsing
 
 # System monitoring and async I/O
-psutil>=5.9.0  # System monitoring and performance metrics
+psutil>=5.9.0  # System metrics and resource monitoring
 aiofiles>=23.0.0  # Async file operations
 
 # Security and encryption

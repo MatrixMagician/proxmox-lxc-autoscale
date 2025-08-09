@@ -5,8 +5,7 @@
 - **✅ Works with `Proxmox 8.4.5`**
 - **🚀 NEW: 60-80% Performance Improvement**
 - **⚡ NEW: Enterprise-Grade Reliability**
-- **🧠 NEW: Advanced Memory Optimization**
-- **📊 NEW: Real-time Performance Monitoring** 
+- **🧠 NEW: Advanced Memory Optimization** 
 
 **Quick Start**
 
@@ -28,7 +27,6 @@
 - **Circuit Breaker Pattern** - Automatic failure detection and recovery
 - **Advanced Error Recovery** - Multiple retry strategies with graceful degradation
 - **Memory Optimization** - Automatic leak detection and memory profiling
-- **Performance Monitoring** - Real-time metrics with trend analysis and alerting
 - **Fault Tolerance** - 90% reduction in operation failures
 
 ### 🧠 **Smart Resource Management**
@@ -63,7 +61,7 @@
 - 🔄 **Retry Mechanisms** - Multiple retry strategies with exponential backoff
 - ⚡ **Connection Pooling** - Optimized SSH connection management for remote operations
 - 🛡️ **Centralized Error Handling** - Comprehensive error management with graceful degradation
-- 📈 **Performance Monitoring** - Real-time performance metrics and utilization tracking
+- 📈 **Memory Optimization** - Automated memory leak detection and utilization tracking
 - 🔧 **Configuration Management** - Centralized, validated configuration with type safety
 - 🧪 **Testing Framework** - Modular design enables comprehensive unit and integration testing
 
@@ -104,12 +102,12 @@ python3 /usr/local/bin/lxc_autoscale/main_async.py --single-cycle
 python3 /usr/local/bin/lxc_autoscale/main_async.py
 ```
 
-### 📊 Performance Monitoring
+### 📊 Memory Optimization
 
-Monitor real-time performance with the new monitoring capabilities:
+Monitor memory usage and optimization with the built-in capabilities:
 
 ```bash
-# View performance logs with structured data
+# View memory optimization logs with structured data
 tail -f /var/log/lxc_autoscale.log | jq
 
 # Check memory optimization stats
@@ -218,8 +216,7 @@ For detailed instructions on how to adjust the settings, please refer to the **[
 - **logging_setup.py** - Basic logging configuration
 - **structured_logger.py** - Advanced JSON logging
 
-#### 📊 **Performance & Monitoring**
-- **performance_monitor.py** - Real-time performance tracking
+#### 📊 **Performance & Optimization**
 - **performance_cache.py** - LRU caching with smart invalidation
 - **memory_optimizer.py** - Memory leak detection and optimization
 
@@ -287,7 +284,7 @@ LXC AutoScale v3.0 can be used and extended in many ways, here some useful addit
 
 - 🌐 [LXC AutoScale UI - Enhanced web UI with performance metrics](https://github.com/fabriziosalmi/proxmox-lxc-autoscale/tree/main/lxc_autoscale/ui)
 - 🎛️ [LXC AutoScale - TIER snippets for 40+ self-hosted apps](https://github.com/fabriziosalmi/proxmox-lxc-autoscale/blob/main/docs/lxc_autoscale/examples/README.md)
-- 📊 [Performance Monitoring Dashboard](https://github.com/fabriziosalmi/proxmox-lxc-autoscale/blob/main/docs/performance/README.md)
+- 📊 [Memory Optimization Guide](https://github.com/fabriziosalmi/proxmox-lxc-autoscale/blob/main/docs/performance/README.md)
 - 🔧 [Advanced Configuration Guide](https://github.com/fabriziosalmi/proxmox-lxc-autoscale/blob/main/docs/configuration/README.md)
 
 
@@ -365,7 +362,6 @@ import optimized_resource_manager
 import performance_cache
 import circuit_breaker
 import memory_optimizer
-import performance_monitor
 print('All core modules loaded successfully')
 "
 ```

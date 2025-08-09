@@ -1,4 +1,4 @@
-"""Memory optimization and profiling utilities for performance monitoring."""
+"""Memory optimization and profiling utilities."""
 
 import gc
 import sys
