@@ -16,11 +16,9 @@
 # ----------------------
 # ASYNC_MODE=true/false          - Enable high-performance async mode
 # RUN_MODE=continuous/single-cycle - Operation mode
-# USE_PROXMOX_API=true/false     - Enable API instead of SSH
 # PROXMOX_HOST                   - Proxmox server hostname/IP
 # PROXMOX_API_TOKEN_VALUE        - API token for authentication
-# SSH_USER                       - SSH username (fallback)
-# SSH_PASS                       - SSH password (fallback)
+# PROXMOX_API_PASSWORD           - API password for authentication (alternative to token)
 # USER_CONF_PATH                 - Custom configuration file path
 # MAX_CONCURRENT_CONTAINERS      - Async concurrency limit
 # 
@@ -49,8 +47,6 @@ COPY . /app
 
 # Install required packages including performance monitoring tools
 RUN apt-get update && apt-get install -y \
-    openssh-client \
-    sshpass \
     curl \
     procps \
     psmisc \

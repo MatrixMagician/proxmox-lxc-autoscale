@@ -47,5 +47,5 @@ def setup_logging(log_file: Optional[str] = None, debug: bool = False) -> None:
         root_logger.addHandler(file_handler)
 
     # Suppress excessive logging from third-party libraries
-    logging.getLogger('paramiko').setLevel(logging.WARNING)
     logging.getLogger('urllib3').setLevel(logging.WARNING)
+    logging.getLogger('aiohttp').setLevel(logging.WARNING)

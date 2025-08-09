@@ -667,6 +667,72 @@ class AsyncProxmoxAPIClient:
             logging.error(f"Failed to get RRD data for container {vmid} (async): {e}")
             raise ProxmoxAPIError(f"Failed to get container RRD data: {e}")
     
+    async def clone_container(self, vmid: Union[int, str], newid: Union[int, str], 
+                             hostname: Optional[str] = None, **clone_params) -> bool:
+        """Clone a container asynchronously.
+        
+        Args:
+            vmid: Source container ID
+            newid: New container ID
+            hostname: Hostname for the new container
+            **clone_params: Additional clone parameters
+            
+        Returns:
+            True if clone was successful
+        """
+        try:
+            params = {'newid': newid}
+            if hostname:
+                params['hostname'] = hostname
+            params.update(clone_params)
+            
+            await self._make_request('POST', f'/nodes/{self.node}/lxc/{vmid}/clone', data=params)
+            
+            logging.info(f"Cloned container {vmid} to {newid} (async)")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Failed to clone container {vmid} to {newid} (async): {e}")
+            raise ProxmoxAPIError(f"Failed to clone container: {e}")
+    
+    async def start_container(self, vmid: Union[int, str]) -> bool:
+        """Start a container asynchronously.
+        
+        Args:
+            vmid: Container ID
+            
+        Returns:
+            True if start was successful
+        """
+        try:
+            await self._make_request('POST', f'/nodes/{self.node}/lxc/{vmid}/status/start')
+            
+            logging.info(f"Started container {vmid} (async)")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Failed to start container {vmid} (async): {e}")
+            raise ProxmoxAPIError(f"Failed to start container: {e}")
+    
+    async def stop_container(self, vmid: Union[int, str]) -> bool:
+        """Stop a container asynchronously.
+        
+        Args:
+            vmid: Container ID
+            
+        Returns:
+            True if stop was successful
+        """
+        try:
+            await self._make_request('POST', f'/nodes/{self.node}/lxc/{vmid}/status/stop')
+            
+            logging.info(f"Stopped container {vmid} (async)")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Failed to stop container {vmid} (async): {e}")
+            raise ProxmoxAPIError(f"Failed to stop container: {e}")
+    
     async def close(self) -> None:
         """Close the async session."""
         if self._session and not self._session.closed:

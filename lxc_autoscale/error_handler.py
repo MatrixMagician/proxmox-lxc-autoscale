@@ -5,8 +5,6 @@ import time
 from functools import wraps
 from typing import Any, Callable, Optional, Type, TypeVar, Union
 
-import paramiko
-
 F = TypeVar('F', bound=Callable[..., Any])
 
 
@@ -22,11 +20,6 @@ class ConfigurationError(LXCAutoscaleError):
 
 class ContainerError(LXCAutoscaleError):
     """Raised when container operations fail."""
-    pass
-
-
-class SSHConnectionError(LXCAutoscaleError):
-    """Raised when SSH connection operations fail."""
     pass
 
 
@@ -84,20 +77,6 @@ def retry_on_failure(
         return wrapper
     return decorator
 
-
-def handle_ssh_errors(func: F) -> F:
-    """Decorator to handle SSH-related errors."""
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except paramiko.SSHException as e:
-            logging.error(f"SSH error in {func.__name__}: {e}")
-            raise SSHConnectionError(f"SSH operation failed: {e}") from e
-        except (ConnectionError, TimeoutError) as e:
-            logging.error(f"Connection error in {func.__name__}: {e}")
-            raise SSHConnectionError(f"Connection failed: {e}") from e
-    return wrapper
 
 
 def handle_container_errors(func: F) -> F:

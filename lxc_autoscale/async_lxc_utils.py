@@ -29,7 +29,6 @@ from lxc_utils import (
     is_ignored, 
     backup_container_settings, 
     load_backup_settings,
-    run_command,
     BACKUP_DIR
 )
 
@@ -286,9 +285,8 @@ class AsyncLXCUtils:
                     client = await self.get_client()
                     success = await client.clone_container(source_ctid, new_ctid, hostname=hostname)
                 
-                if success:
-                    logging.info(f"Cloned container {source_ctid} to {new_ctid} via async API")
-                    return True
+                logging.info(f"Cloned container {source_ctid} to {new_ctid} via async API")
+                return success
                     
             except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
                 logging.warning(f"Async API cloning failed, falling back to sync: {e}")
@@ -314,9 +312,8 @@ class AsyncLXCUtils:
                     client = await self.get_client()
                     success = await client.start_container(ctid)
                 
-                if success:
-                    logging.info(f"Started container {ctid} via async API")
-                    return True
+                logging.info(f"Started container {ctid} via async API")
+                return success
                     
             except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
                 logging.warning(f"Async API start failed for container {ctid}, falling back to sync: {e}")
@@ -342,9 +339,8 @@ class AsyncLXCUtils:
                     client = await self.get_client()
                     success = await client.stop_container(ctid)
                 
-                if success:
-                    logging.info(f"Stopped container {ctid} via async API")
-                    return True
+                logging.info(f"Stopped container {ctid} via async API")
+                return success
                     
             except (ProxmoxAPIError, ProxmoxConnectionError, ProxmoxAuthenticationError) as e:
                 logging.warning(f"Async API stop failed for container {ctid}, falling back to sync: {e}")

@@ -1,22 +1,18 @@
-"""Asynchronous command execution for high-performance operations."""
+"""Asynchronous command execution for high-performance operations using Proxmox API."""
 
 import asyncio
 import logging
 import subprocess
 from typing import Dict, List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import asynccontextmanager
 import time
 
-import paramiko
-import asyncssh
-
-from constants import DEFAULT_COMMAND_TIMEOUT, DEFAULT_SSH_TIMEOUT
-from error_handler import SSHConnectionError, handle_ssh_errors, retry_on_failure
+from constants import DEFAULT_COMMAND_TIMEOUT
+from error_handler import handle_configuration_errors
 
 
 class AsyncCommandExecutor:
-    """High-performance asynchronous command executor with connection pooling."""
+    """High-performance asynchronous command executor using Proxmox API exclusively."""
     
     def __init__(self, config_manager, max_concurrent_commands: int = 10):
         """Initialize the async command executor.
@@ -28,9 +24,6 @@ class AsyncCommandExecutor:
         self.config_manager = config_manager
         self.max_concurrent_commands = max_concurrent_commands
         self._semaphore = asyncio.Semaphore(max_concurrent_commands)
-        self._ssh_pool: List[asyncssh.SSHClientConnection] = []
-        self._pool_lock = asyncio.Lock()
-        self._connection_cache: Dict[str, asyncssh.SSHClientConnection] = {}
         self._executor = ThreadPoolExecutor(max_workers=max_concurrent_commands)
         
         # Performance metrics
@@ -38,107 +31,8 @@ class AsyncCommandExecutor:
             'total_commands': 0,
             'successful_commands': 0,
             'failed_commands': 0,
-            'avg_execution_time': 0.0,
-            'cache_hits': 0
+            'avg_execution_time': 0.0
         }
-    
-    @property
-    def use_remote(self) -> bool:
-        """Check if remote execution should be used."""
-        return self.config_manager.get_default('use_remote_proxmox', False)
-    
-    async def initialize_pool(self, pool_size: int = 5) -> None:
-        """Initialize SSH connection pool for better performance.
-        
-        Args:
-            pool_size: Size of the connection pool
-        """
-        if not self.use_remote:
-            return
-        
-        async with self._pool_lock:
-            try:
-                host = self.config_manager.get_default('proxmox_host')
-                port = self.config_manager.get_default('ssh_port', 22)
-                username = self.config_manager.get_default('ssh_user')
-                password = self.config_manager.get_default('ssh_password')
-                key_filename = self.config_manager.get_default('ssh_key_path')
-                
-                # Create connection pool
-                for _ in range(pool_size):
-                    try:
-                        conn = await asyncssh.connect(
-                            host=host,
-                            port=port,
-                            username=username,
-                            password=password,
-                            client_keys=[key_filename] if key_filename else None,
-                            known_hosts=None,
-                            server_host_key_algs=['ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512'],
-                            connect_timeout=self.config_manager.get_default('ssh_timeout', DEFAULT_SSH_TIMEOUT),
-                            keepalive_interval=30
-                        )
-                        self._ssh_pool.append(conn)
-                        logging.debug(f"Created SSH connection {len(self._ssh_pool)}/{pool_size}")
-                    except Exception as e:
-                        logging.warning(f"Failed to create SSH connection: {e}")
-                
-                logging.info(f"SSH pool initialized with {len(self._ssh_pool)} connections")
-                
-            except Exception as e:
-                logging.error(f"Failed to initialize SSH pool: {e}")
-                raise SSHConnectionError(f"SSH pool initialization failed: {e}") from e
-    
-    async def _get_ssh_connection(self) -> Optional[asyncssh.SSHClientConnection]:
-        """Get an SSH connection from the pool."""
-        async with self._pool_lock:
-            if self._ssh_pool:
-                conn = self._ssh_pool.pop()
-                # Test if connection is still alive
-                try:
-                    await conn.run('echo test', timeout=5)
-                    return conn
-                except Exception:
-                    # Connection is dead, create a new one
-                    try:
-                        await conn.close()
-                    except:
-                        pass
-            
-            # Create new connection if pool is empty or connection failed
-            try:
-                host = self.config_manager.get_default('proxmox_host')
-                port = self.config_manager.get_default('ssh_port', 22)
-                username = self.config_manager.get_default('ssh_user')
-                password = self.config_manager.get_default('ssh_password')
-                key_filename = self.config_manager.get_default('ssh_key_path')
-                
-                conn = await asyncssh.connect(
-                    host=host,
-                    port=port,
-                    username=username,
-                    password=password,
-                    client_keys=[key_filename] if key_filename else None,
-                    known_hosts=None,
-                    server_host_key_algs=['ssh-rsa', 'rsa-sha2-256', 'rsa-sha2-512'],
-                    connect_timeout=self.config_manager.get_default('ssh_timeout', DEFAULT_SSH_TIMEOUT),
-                    keepalive_interval=30
-                )
-                return conn
-            except Exception as e:
-                logging.error(f"Failed to create SSH connection: {e}")
-                return None
-    
-    async def _return_ssh_connection(self, conn: asyncssh.SSHClientConnection) -> None:
-        """Return an SSH connection to the pool."""
-        async with self._pool_lock:
-            if len(self._ssh_pool) < self.max_concurrent_commands:
-                self._ssh_pool.append(conn)
-            else:
-                try:
-                    await conn.close()
-                except:
-                    pass
     
     async def execute_local_command(self, cmd: str, timeout: int = DEFAULT_COMMAND_TIMEOUT) -> Optional[str]:
         """Execute a command locally with async support.
@@ -185,61 +79,11 @@ class AsyncCommandExecutor:
             self._update_stats(False, time.time() - start_time)
             return None
     
-    async def execute_remote_command(self, cmd: str, timeout: int = DEFAULT_COMMAND_TIMEOUT) -> Optional[str]:
-        """Execute a command remotely via SSH with connection pooling.
-        
-        Args:
-            cmd: The command to execute
-            timeout: Timeout in seconds for the command execution
-            
-        Returns:
-            The command output or None if the command failed
-        """
-        start_time = time.time()
-        conn = None
-        
-        try:
-            conn = await self._get_ssh_connection()
-            if not conn:
-                self._update_stats(False, time.time() - start_time)
-                return None
-            
-            result = await conn.run(cmd, timeout=timeout)
-            
-            if result.exit_status == 0:
-                output = result.stdout.strip()
-                self._update_stats(True, time.time() - start_time)
-                logging.debug(f"Remote command '{cmd}' executed successfully")
-                await self._return_ssh_connection(conn)
-                return output
-            else:
-                error_output = result.stderr.strip()
-                logging.error(f"Remote command '{cmd}' failed with exit code {result.exit_status}: {error_output}")
-                self._update_stats(False, time.time() - start_time)
-                await self._return_ssh_connection(conn)
-                return None
-                
-        except asyncio.TimeoutError:
-            logging.error(f"Remote command '{cmd}' timed out after {timeout} seconds")
-            self._update_stats(False, time.time() - start_time)
-            if conn:
-                try:
-                    await conn.close()
-                except:
-                    pass
-            return None
-        except Exception as e:
-            logging.error(f"Error executing remote command '{cmd}': {e}")
-            self._update_stats(False, time.time() - start_time)
-            if conn:
-                try:
-                    await conn.close()
-                except:
-                    pass
-            return None
-    
     async def execute(self, cmd: str, timeout: int = DEFAULT_COMMAND_TIMEOUT) -> Optional[str]:
-        """Execute a command locally or remotely based on configuration.
+        """Execute a command locally using Proxmox API approach.
+        
+        Note: This function now only executes local commands since we're using
+        Proxmox API exclusively. Remote execution is handled by the API client.
         
         Args:
             cmd: The command to execute
@@ -258,12 +102,8 @@ class AsyncCommandExecutor:
             logging.warning(f"Potentially unsafe command detected: {cmd}")
         
         async with self._semaphore:
-            logging.debug(f"Executing command: {cmd} (timeout: {timeout}s, remote: {self.use_remote})")
-            
-            if self.use_remote:
-                return await self.execute_remote_command(cmd, timeout)
-            else:
-                return await self.execute_local_command(cmd, timeout)
+            logging.debug(f"Executing local command: {cmd} (timeout: {timeout}s)")
+            return await self.execute_local_command(cmd, timeout)
     
     async def execute_batch(self, commands: List[Tuple[str, int]], max_concurrent: int = None) -> List[Optional[str]]:
         """Execute multiple commands concurrently for better performance.
@@ -295,6 +135,9 @@ class AsyncCommandExecutor:
     
     async def execute_proxmox_commands_batch(self, commands: List[Tuple[str, int]]) -> List[Optional[str]]:
         """Execute multiple Proxmox commands concurrently.
+        
+        Note: This is now for local Proxmox commands only, as remote operations
+        are handled by the Proxmox API client.
         
         Args:
             commands: List of (command, timeout) tuples
@@ -357,23 +200,6 @@ class AsyncCommandExecutor:
     async def cleanup(self) -> None:
         """Cleanup resources used by the executor."""
         try:
-            # Close all SSH connections
-            async with self._pool_lock:
-                for conn in self._ssh_pool:
-                    try:
-                        await conn.close()
-                    except:
-                        pass
-                self._ssh_pool.clear()
-            
-            # Close cached connections
-            for conn in self._connection_cache.values():
-                try:
-                    await conn.close()
-                except:
-                    pass
-            self._connection_cache.clear()
-            
             # Shutdown thread pool
             self._executor.shutdown(wait=True)
             
@@ -384,7 +210,6 @@ class AsyncCommandExecutor:
     
     async def __aenter__(self):
         """Async context manager entry."""
-        await self.initialize_pool()
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):

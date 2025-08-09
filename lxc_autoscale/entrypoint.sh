@@ -22,108 +22,78 @@ fi
 echo "Using configuration file: ${CONFIG_PATH}"
 
 # Set connection variables from environment or YAML
-# Support both API and SSH connectivity
+# API-only connectivity (SSH functionality removed)
 if [[ -z "${PROXMOX_HOST}" ]]; then
   PROXMOX_HOST=$(yq eval '.DEFAULT.proxmox_host' "${CONFIG_PATH}" 2>/dev/null || yq eval '.DEFAULT.proxmox_api_host' "${CONFIG_PATH}" 2>/dev/null)
   echo "Debug: PROXMOX_HOST read from YAML: ${PROXMOX_HOST}"
 fi
 
-# Check for API configuration first (preferred method)
-PROXMOX_API_TOKEN=$(yq eval '.DEFAULT.proxmox_api_token_value' "${CONFIG_PATH}" 2>/dev/null)
-USE_PROXMOX_API=$(yq eval '.DEFAULT.use_proxmox_api' "${CONFIG_PATH}" 2>/dev/null)
+# Check if API credentials are provided
+API_TOKEN_VALUE=$(yq eval '.DEFAULT.proxmox_api_token_value' "${CONFIG_PATH}")
+API_PASSWORD=$(yq eval '.DEFAULT.proxmox_api_password' "${CONFIG_PATH}")
 
-# Fall back to SSH if API not configured
-if [[ -z "${PROXMOX_API_TOKEN}" || "${USE_PROXMOX_API}" != "true" ]]; then
-  echo "API not configured or disabled, checking SSH credentials..."
-  
-  if [[ -z "${SSH_USER}" ]]; then
-    SSH_USER=$(yq eval '.DEFAULT.ssh_user' "${CONFIG_PATH}")
-    echo "Debug: SSH_USER read from YAML: ${SSH_USER}"
-  fi
-  
-  if [[ -z "${SSH_PASS}" ]]; then
-    SSH_PASS=$(yq eval '.DEFAULT.ssh_password' "${CONFIG_PATH}")
-    echo "Debug: SSH_PASS read from YAML: ${SSH_PASS}"
-  fi
-else
-  echo "Proxmox API configured, will use API for operations"
-fi
-
-# Verify connection configuration
-if [[ -z "${PROXMOX_HOST}" ]]; then
-  echo "Error: PROXMOX_HOST must be set via environment variables or in the YAML file."
+# Verify API credentials are available (password or token)
+if [[ -z "${API_TOKEN_VALUE}" && -z "${API_PASSWORD}" ]]; then
+  echo "Error: API credentials must be configured (proxmox_api_token_value or proxmox_api_password)."
+  echo "SSH functionality has been removed - only Proxmox API authentication is supported."
   exit 1
+else
+  echo "API credentials configured, will use API for all operations."
 fi
 
-# Verify either API or SSH credentials are available
-if [[ -z "${PROXMOX_API_TOKEN}" || "${USE_PROXMOX_API}" != "true" ]]; then
-  if [[ -z "${SSH_USER}" || -z "${SSH_PASS}" ]]; then
-    echo "Error: Either API credentials (proxmox_api_token_value) or SSH credentials (SSH_USER, SSH_PASS) must be configured."
-    exit 1
-  fi
-fi
+# Log configuration for debugging
+echo "Debug: Configuration loaded from ${CONFIG_PATH}"
+echo "Debug: PROXMOX_HOST=${PROXMOX_HOST}"
+echo "Debug: API_TOKEN_VALUE=${API_TOKEN_VALUE:+[CONFIGURED]}"
+echo "Debug: API_PASSWORD=${API_PASSWORD:+[CONFIGURED]}"
 
-# Create required directories to ensure paths are writable
-mkdir -p /var/log /var/lock /var/lib/lxc_autoscale/backups
-
-# Function to test connection (API or SSH)
-check_connection() {
-  if [[ "${USE_PROXMOX_API}" == "true" && -n "${PROXMOX_API_TOKEN}" ]]; then
-    echo "Testing Proxmox API connection..."
-    # Test API connectivity using Python
-    python3 -c "
+# Function to test API connection
+test_connection() {
+  echo "Testing Proxmox API connection..."
+  
+  # Simple API test - attempt to get version information
+  if python3 -c "
 import sys
 sys.path.append('/app')
 try:
-    from proxmox_api_client import get_proxmox_client
+    from lxc_autoscale.proxmox_api_client import get_proxmox_client
     client = get_proxmox_client()
-    containers = client.get_containers()
-    print(f'API connection successful - found {len(containers)} containers')
+    version = client._client.version.get()
+    print(f'Successfully connected to Proxmox VE {version.get(\"version\", \"unknown\")}')
+    exit(0)
 except Exception as e:
     print(f'API connection failed: {e}')
-    sys.exit(1)
-" || {
-      echo "Error: Unable to connect to Proxmox host ${PROXMOX_HOST} via API."
-      exit 1
-    }
+    exit(1)
+"; then
+    echo "Proxmox API connection successful."
+    return 0
   else
-    echo "Testing SSH connection..."
-    local ssh_test_command="echo 'SSH connection successful and command executed'"
-    
-    # Test SSH connection using sshpass
-    sshpass -p "${SSH_PASS}" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 "${SSH_USER}@${PROXMOX_HOST}" "${ssh_test_command}" >/dev/null 2>&1
-  
-    # Check if the SSH command was successful
-    if [[ $? -ne 0 ]]; then
-      echo "Error: Unable to connect to Proxmox host ${PROXMOX_HOST} via SSH or execute the test command."
-      exit 1
-    else
-      echo "SSH connection to Proxmox host ${PROXMOX_HOST} successful, and test command executed correctly."
-    fi
+    echo "Error: Unable to connect to Proxmox host ${PROXMOX_HOST} via API."
+    return 1
   fi
 }
 
-# Call the connection test function
-check_connection
+# Test the connection
+if ! test_connection; then
+  echo "Connection test failed. Please check your Proxmox API credentials and network connectivity."
+  exit 1
+fi
 
-# Check if async mode is requested
-ASYNC_MODE=${ASYNC_MODE:-false}
-RUN_MODE=${RUN_MODE:-continuous}
+# Change to the working directory
+cd /app || exit
 
-# Start the Python application with the correct configuration path
-echo "Starting the autoscaling application..."
-echo "Configuration: ${CONFIG_PATH}"
-echo "Async mode: ${ASYNC_MODE}"
-echo "Run mode: ${RUN_MODE}"
+# Set Python path to include the app directory
+export PYTHONPATH="${PYTHONPATH}:/app:/app/lxc_autoscale"
 
-if [[ "${ASYNC_MODE}" == "true" ]]; then
-  echo "Starting in high-performance async mode..."
-  if [[ "${RUN_MODE}" == "single-cycle" ]]; then
-    python3 main_async.py --single-cycle
-  else
-    python3 main_async.py
-  fi
+# Determine execution mode based on environment variable
+EXECUTION_MODE="${EXECUTION_MODE:-async}"
+echo "Starting LXC AutoScale in ${EXECUTION_MODE} mode..."
+
+if [[ "${EXECUTION_MODE}" == "async" ]]; then
+  echo "Running in asynchronous high-performance mode"
+  exec python3 -m lxc_autoscale.main_async
 else
-  echo "Starting in standard synchronous mode..."
-  python3 main_async.py --config "${CONFIG_PATH}"
+  echo "Running in synchronous mode (legacy)"
+  # Note: You may need to create a sync entry point if needed
+  exec python3 -m lxc_autoscale.main_async --sync-mode
 fi

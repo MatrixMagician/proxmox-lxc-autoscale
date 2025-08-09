@@ -43,9 +43,7 @@ CONSERVATIVE_MULTIPLIER = 0.5
 AGGRESSIVE_MULTIPLIER = 2.0
 OFF_PEAK_MULTIPLIER = 0.8
 
-# SSH connection defaults
-DEFAULT_SSH_PORT = 22
-DEFAULT_SSH_TIMEOUT = 10
+# Command execution defaults
 DEFAULT_COMMAND_TIMEOUT = 30
 
 # Thread pool settings

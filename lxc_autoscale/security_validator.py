@@ -5,7 +5,7 @@ import os
 import logging
 import hashlib
 import secrets
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from pathlib import Path
 import ipaddress
@@ -55,7 +55,7 @@ class ConfigurationValidator:
         }
         
         self.secure_defaults = {
-            'ssh_timeout': 30,
+            'api_timeout': 30,
             'max_concurrent_operations': 10,
             'enable_logging': True,
             'log_level': 'INFO',
@@ -125,24 +125,7 @@ class ConfigurationValidator:
                     recommendation='Change default credentials immediately'
                 ))
         
-        # Check SSH key security
-        ssh_key_path = config.get('ssh_key_path')
-        if ssh_key_path:
-            try:
-                key_path = Path(ssh_key_path)
-                if key_path.exists():
-                    stat = key_path.stat()
-                    # Check if key file is too permissive
-                    if stat.st_mode & 0o077:  # Others can read/write
-                        violations.append(SecurityViolation(
-                            severity='high',
-                            category='file_permissions',
-                            message=f'SSH key file has overly permissive permissions: {ssh_key_path}',
-                            location='ssh_key_path',
-                            recommendation='Set permissions to 600 (chmod 600)'
-                        ))
-            except Exception as e:
-                logging.warning(f"Could not check SSH key permissions: {e}")
+        # SSH functionality has been removed - no SSH key validation needed
         
         return violations
     
@@ -290,7 +273,7 @@ class ConfigurationValidator:
             ))
         
         # Check timeout settings
-        timeouts = ['ssh_timeout', 'command_timeout', 'api_timeout']
+        timeouts = ['command_timeout', 'api_timeout']
         for timeout_key in timeouts:
             timeout_value = config.get(timeout_key)
             if timeout_value and timeout_value > 300:  # 5 minutes

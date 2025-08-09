@@ -30,19 +30,8 @@ DEFAULTS:
   # API request timeout in seconds
   proxmox_api_timeout: 30
   
-  # SSH Configuration (fallback when API is not available)
-  # Whether to use remote Proxmox host via SSH
-  use_remote_proxmox: false
-  # Proxmox host for SSH connections
-  # proxmox_host: your_proxmox_host
-  # SSH port for remote connections
-  ssh_port: 22
-  # SSH username
-  # ssh_user: root
-  # SSH password (not recommended, use key-based authentication)
-  # ssh_password: your_ssh_password
-  # SSH private key file path
-  # ssh_key_path: /path/to/your/private/key
+  # Note: SSH fallback functionality has been removed. 
+  # All operations now use the Proxmox API exclusively.
   # Start hour for off-peak energy-saving mode (e.g., 10 PM)
   off_peak_start: 22
   # End hour for off-peak energy-saving mode (e.g., 6 AM)

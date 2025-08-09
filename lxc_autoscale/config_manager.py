@@ -8,7 +8,16 @@ from typing import Any, Dict, List, Optional, Set, Union
 
 import yaml
 
-from constants import *
+from constants import (
+    DEFAULT_CONFIG_FILE, DEFAULT_LOG_FILE, DEFAULT_LOCK_FILE, DEFAULT_BACKUP_DIR,
+    DEFAULT_POLL_INTERVAL, DEFAULT_RESERVE_CPU_PERCENT, DEFAULT_RESERVE_MEMORY_MB,
+    DEFAULT_OFF_PEAK_START, DEFAULT_OFF_PEAK_END, DEFAULT_CPU_UPPER_THRESHOLD,
+    DEFAULT_CPU_LOWER_THRESHOLD, DEFAULT_MEMORY_UPPER_THRESHOLD, DEFAULT_MEMORY_LOWER_THRESHOLD,
+    DEFAULT_MIN_CORES, DEFAULT_MAX_CORES, DEFAULT_MIN_MEMORY, DEFAULT_CORE_MIN_INCREMENT,
+    DEFAULT_CORE_MAX_INCREMENT, DEFAULT_MEMORY_MIN_INCREMENT, DEFAULT_MIN_DECREASE_CHUNK,
+    DEFAULT_CPU_SCALE_DIVISOR, DEFAULT_MEMORY_SCALE_FACTOR, DEFAULT_TIMEOUT_EXTENDED,
+    BEHAVIOR_NORMAL
+)
 from error_handler import ConfigurationError, ErrorHandler, handle_configuration_errors
 
 
@@ -59,8 +68,6 @@ class ConfigManager:
             'log_file': DEFAULT_LOG_FILE,
             'lock_file': DEFAULT_LOCK_FILE,
             'backup_dir': DEFAULT_BACKUP_DIR,
-            'ssh_port': DEFAULT_SSH_PORT,
-            'use_remote_proxmox': False,
             'ignore_lxc': []
         }
     
@@ -295,3 +302,14 @@ class ConfigManager:
 
 # Global configuration manager instance
 config_manager = ConfigManager()
+
+# Export commonly used constants for backward compatibility
+BACKUP_DIR = config_manager.get_default('backup_dir')
+IGNORE_LXC = config_manager._ignore_lxc
+LOG_FILE = config_manager.get_default('log_file')
+LXC_TIER_ASSOCIATIONS = config_manager._tier_configurations
+PROXMOX_HOSTNAME = config_manager.get_proxmox_hostname()
+
+# Export config manager methods for backward compatibility
+config = config_manager._config
+get_config_value = config_manager.get_value

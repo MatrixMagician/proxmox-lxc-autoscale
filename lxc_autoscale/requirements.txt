@@ -3,10 +3,8 @@ flask>=2.3.0  # Web UI framework
 requests>=2.31.0  # HTTP requests
 flask-socketio>=5.3.0  # WebSocket support for UI
 
-# Configuration and SSH packages  
+# Configuration packages  
 PyYAML>=6.0  # YAML configuration parsing
-paramiko>=2.11.0  # SSH connections (synchronous)
-asyncssh>=2.13.0  # High-performance async SSH connections
 
 # System monitoring and async I/O
 psutil>=5.9.0  # System monitoring and performance metrics
