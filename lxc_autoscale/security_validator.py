@@ -5,7 +5,7 @@ import os
 import logging
 import hashlib
 import secrets
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from dataclasses import dataclass
 from pathlib import Path
 import ipaddress
